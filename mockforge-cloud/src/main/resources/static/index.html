@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MockForge Cloud Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f9; }
+        h1 { color: #333; }
+        .section { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        label { font-weight: bold; display: block; margin-top: 10px; }
+        input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        button { margin-top: 10px; padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
+        th { background: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <h1>MockForge Cloud Dashboard</h1>
+
+    <div class="section">
+        <h3>Workspace Selection</h3>
+        <label for="workspaceSelect">Select Workspace:</label>
+        <select id="workspaceSelect">
+            <option value="1">Sample Workspace (Default)</option>
+        </select>
+    </div>
+
+    <div class="section">
+        <h3>Endpoint List & Editor</h3>
+        <label for="endpointName">Endpoint Name:</label>
+        <input type="text" id="endpointName" placeholder="e.g., Get User Profile" value="Sample Endpoint">
+        
+        <label for="mockUrl">Mock URL Display:</label>
+        <input type="text" id="mockUrl" readonly value="http://localhost:8080/mock/workspaces/1/users">
+
+        <button onclick="alert('Endpoint saved successfully!')">Save Endpoint</button>
+    </div>
+
+    <div class="section">
+        <h3>Request History & Actions</h3>
+        <button onclick="fetchLogs()">Refresh History</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Log ID</th>
+                    <th>Method</th>
+                    <th>Path</th>
+                    <th>Status</th>
+                    <th>Duration (ms)</th>
+                    <th>Received At</th>
+                </tr>
+            </thead>
+            <tbody id="historyTableBody">
+                <!-- Dynamic logs will load here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Function to fetch logs from our backend API and populate the table
+        async function fetchLogs() {
+            try {
+                let response = await fetch('/api/logs');
+                let logs = await response.json();
+                let tbody = document.getElementById('historyTableBody');
+                tbody.innerHTML = '';
+
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No request logs found yet.</td></tr>';
+                    return;
+                }
+
+                logs.forEach(log => {
+                    let row = `<tr>
+                        <td>${log.logId}</td>
+                        <td>${log.httpMethod}</td>
+                        <td>${log.requestPath}</td>
+                        <td>${log.responseStatus}</td>
+                        <td>${log.durationMs}</td>
+                        <td>${log.receivedAt}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+            }
+        }
+
+        // Auto-load logs when the page opens
+        window.onload = fetchLogs;
+    </script>
+
+</body>
+</html>
