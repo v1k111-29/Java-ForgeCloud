@@ -31,12 +31,15 @@
     <div class="section">
         <h3>Endpoint List & Editor</h3>
         <label for="endpointName">Endpoint Name:</label>
-        <input type="text" id="endpointName" placeholder="e.g., Get User Profile" value="Sample Endpoint">
+        <input type="text" id="endpointName" placeholder="e.g., Get User Profile" value="Get User Profile">
         
-        <label for="mockUrl">Mock URL Display:</label>
-        <input type="text" id="mockUrl" readonly value="http://localhost:8080/mock/workspaces/1/users">
+        <label for="mockUrl">Mock URL Path:</label>
+        <input type="text" id="mockUrl" placeholder="e.g., /mock/workspaces/1/users" value="/mock/workspaces/1/users">
 
-        <button onclick="alert('Endpoint saved successfully!')">Save Endpoint</button>
+        <label for="responseBody">Mock Response Body (JSON):</label>
+        <textarea id="responseBody" rows="4" placeholder='{"message": "Hello World"}'></textarea>
+
+        <button onclick="saveEndpoint()">Save Endpoint</button>
     </div>
 
     <div class="section">
@@ -86,6 +89,40 @@
                 });
             } catch (error) {
                 console.error('Error fetching logs:', error);
+            }
+        }
+
+        // Function to save a new endpoint to the backend database
+        async function saveEndpoint() {
+            const workspaceId = document.getElementById('workspaceSelect').value;
+            const endpointName = document.getElementById('endpointName').value;
+            const mockUrlPath = document.getElementById('mockUrl').value;
+            const responseBody = document.getElementById('responseBody').value;
+
+            const endpointData = {
+                workspaceId: parseInt(workspaceId),
+                endpointName: endpointName,
+                mockUrlPath: mockUrlPath,
+                responseBody: responseBody
+            };
+
+            try {
+                let response = await fetch('/api/endpoints', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(endpointData)
+                });
+
+                if (response.ok) {
+                    alert('Endpoint saved successfully to MySQL!');
+                } else {
+                    alert('Failed to save endpoint.');
+                }
+            } catch (error) {
+                console.error('Error saving endpoint:', error);
+                alert('Error connecting to backend server.');
             }
         }
 
