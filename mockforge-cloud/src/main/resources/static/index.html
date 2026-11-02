@@ -43,6 +43,25 @@
     </div>
 
     <div class="section">
+        <h3>Active Mock Endpoints</h3>
+        <button onclick="fetchEndpoints()">Refresh Endpoints</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Mock Path</th>
+                    <th>Response Body</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody id="endpointsTableBody">
+                <!-- Dynamic endpoints will load here -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
         <h3>Request History & Actions</h3>
         <button onclick="fetchLogs()">Refresh History</button>
         <table>
@@ -63,7 +82,7 @@
     </div>
 
     <script>
-        // Function to fetch logs from our backend API and populate the table
+        // Function to fetch logs from backend API and populate table
         async function fetchLogs() {
             try {
                 let response = await fetch('/api/logs');
@@ -92,6 +111,39 @@
             }
         }
 
+        // Function to fetch active mock endpoints and populate table
+        async function fetchEndpoints() {
+            try {
+                let response = await fetch('/api/endpoints');
+                let endpoints = await response.json();
+                let tbody = document.getElementById('endpointsTableBody');
+                tbody.innerHTML = '';
+
+                if (endpoints.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No active endpoints found.</td></tr>';
+                    return;
+                }
+
+                endpoints.forEach(ep => {
+                    let row = `<tr>
+                        <td>${ep.endpointId}</td>
+                        <td>${ep.endpointName}</td>
+                        <td><a href="${ep.mockUrlPath}" target="_blank">${ep.mockUrlPath}</a></td>
+                        <td><code>${escapeHtml(ep.responseBody)}</code></td>
+                        <td>${ep.createdAt || 'N/A'}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error('Error fetching endpoints:', error);
+            }
+        }
+
+        // Helper function to safely render JSON strings in table
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
         // Function to save a new endpoint to the backend database
         async function saveEndpoint() {
             const workspaceId = document.getElementById('workspaceSelect').value;
@@ -109,14 +161,13 @@
             try {
                 let response = await fetch('/api/endpoints', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(endpointData)
                 });
 
                 if (response.ok) {
                     alert('Endpoint saved successfully to MySQL!');
+                    fetchEndpoints(); // Auto-refresh the endpoints table
                 } else {
                     alert('Failed to save endpoint.');
                 }
@@ -126,8 +177,11 @@
             }
         }
 
-        // Auto-load logs when the page opens
-        window.onload = fetchLogs;
+        // Auto-load data when the page opens
+        window.onload = () => {
+            fetchEndpoints();
+            fetchLogs();
+        };
     </script>
 
 </body>
