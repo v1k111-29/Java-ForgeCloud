@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS mock_endpoints (
+CREATE TABLE IF NOT EXISTS endpoints (
     endpoint_id BIGINT NOT NULL AUTO_INCREMENT,
     workspace_id BIGINT NOT NULL,
     name VARCHAR(120) NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS request_logs (
     KEY idx_logs_endpoint_received (endpoint_id, received_at),
     CONSTRAINT fk_logs_endpoint
         FOREIGN KEY (endpoint_id)
-        REFERENCES mock_endpoints (endpoint_id)
+        REFERENCES endpoints (endpoint_id)
         ON DELETE RESTRICT
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4

@@ -17,7 +17,7 @@ public class RequestLogRepository {
 
     // Save a new request log to the database
     public int save(RequestLog log) {
-        String sql = "INSERT INTO request_logs (endpoint_id, http_method, request_path, response_status, duration_ms, request_body_sample) VALUES (?, ?, ?, ?, ?, ?)";
+     String sql = "INSERT INTO request_logs (endpoint_id, http_method, request_path, response_status, duration_ms, request_body_sample) VALUES (?, ?, ?, ?, ?, ?)";
         return jdbcTemplate.update(sql,
                 log.getEndpointId(),
                 log.getHttpMethod(),
