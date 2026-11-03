@@ -1,67 +1,56 @@
 package com.mockforge.repository;
 
+import java.sql.PreparedStatement;
 import java.util.List;
-
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
-
 import com.mockforge.model.Workspace;
 
-import org.springframework.web.server.ResponseStatusException;
-
-
-@Repository 
+@Repository
 public class WorkspaceRepository {
-    
-    @Autowired 
-    private JdbcTemplate jdbcTemplate;
 
-    // Saves a new request to Workspace database 
+    private final JdbcTemplate jdbcTemplate;
 
-    public int save(Workspace workspace)
-    {
-        String sql = "INSERT INTO workspaces (name, description) VALUES (?,?) ";
-
-        return jdbcTemplate.update(sql,
-            workspace.getName(),
-            workspace.getDescription()
-        );
+    public WorkspaceRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
     }
 
-    // Returns all the workspaces
-    public List<Workspace> findAll()
-    {
-        String sql = "SELECT * FROM workspaces ORDER BY workspace_id DESC ";
-        RowMapper<Workspace> rowMapper = (rs , rowNum) ->
-        {
-            Workspace work = new Workspace();   
-            work.setName(rs.getString("name"));
-            work.setDescription(rs.getString("description"));
-            work.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-            work.setWorkspaceId(rs.getLong("workspace_id"));
+    // Convert each database row into a Java object.
+    private final RowMapper<Workspace> rowMapper = (rs, row) -> {
+        Workspace workspace = new Workspace();
+        workspace.setWorkspaceId(rs.getLong("workspace_id"));
+        workspace.setName(rs.getString("name"));
+        workspace.setDescription(rs.getString("description"));
+        workspace.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+        return workspace;
+    };
 
-            return work;
-        };
+    // Save a workspace and return it with the generated ID.
+    public Workspace save(Workspace workspace) {
+        GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement("INSERT INTO workspaces (name, description)"
+                + " VALUES (?, ?)", new String[]{"workspace_id"});
+            statement.setString(1, workspace.getName());
+            statement.setString(2, workspace.getDescription());
+            return statement;
+        }, keyHolder);
+        String sql = "SELECT * FROM workspaces WHERE workspace_id = ?";
+        return jdbcTemplate.queryForObject(sql, rowMapper, keyHolder.getKey().longValue());
+    }
 
+    // Fetch all the workspaces from the database.
+    public List<Workspace> findAll() {
+        String sql = "SELECT * FROM workspaces ORDER BY workspace_id DESC";
         return jdbcTemplate.query(sql, rowMapper);
+    }
 
-    }   
-
-
+    // Check whether the given workspace exists.
     public boolean existsById(long workspaceId) {
         String sql = "SELECT COUNT(*) FROM workspaces WHERE workspace_id = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, workspaceId);
-
-        if(!(workspaceRepository.existsByI`d(endpoint.getWorkspaceId() )))
-        {
-
-        }
-            
+        Long count = jdbcTemplate.queryForObject(sql, Long.class, workspaceId);
         return count != null && count > 0;
     }
-
-
 }

@@ -1,24 +1,37 @@
 package com.mockforge.controller;
 
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import com.mockforge.model.Workspace;
-import com.mockforge.repository.WorkspaceRepository;
-import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import com.mockforge.model.Workspace;
+import com.mockforge.service.WorkspaceService;
 
-@RestController 
-@RequestMapping("/api")
+@RestController
+@RequestMapping("/api/workspaces")
 public class WorkspaceController {
 
-    @Autowired
-    private WorkspaceRepository workspaceRepository;
+    private final WorkspaceService workspaceService;
 
-    // API endpoint to fetch the workspaces
-    @GetMapping("/workspaces")
-    public List<Workspace> getWorkSpaces() {
-        return workspaceRepository.findAll();
+    public WorkspaceController(WorkspaceService workspaceService) {
+        this.workspaceService = workspaceService;
     }
-    
+
+    // API endpoint to fetch the workspaces.
+    @GetMapping
+    public List<Workspace> list() {
+        return workspaceService.list();
+    }
+
+    // API endpoint to create a workspace.
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Workspace create(@Valid @RequestBody Workspace workspace) {
+        return workspaceService.create(workspace);
+    }
 }

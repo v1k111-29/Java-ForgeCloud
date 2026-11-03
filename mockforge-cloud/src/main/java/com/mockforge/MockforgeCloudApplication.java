@@ -1,3 +1,5 @@
+// Initializes the application and starts the Spring Boot application context.
+
 package com.mockforge;
 
 import org.springframework.boot.SpringApplication;

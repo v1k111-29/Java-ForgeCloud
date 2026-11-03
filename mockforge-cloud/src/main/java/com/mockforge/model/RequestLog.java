@@ -1,8 +1,10 @@
+// Represents a log entry for a request made to an endpoint, including details such as the HTTP method, request path, response status, and duration.
+
 package com.mockforge.model;
 
 import java.time.LocalDateTime;
-
 public class RequestLog {
+
     private Long logId;
     private Long endpointId;
     private LocalDateTime receivedAt;
@@ -11,29 +13,87 @@ public class RequestLog {
     private Integer responseStatus;
     private Integer durationMs;
     private String requestBodySample;
+    private String responseSource;
+    private String fallbackReason;
 
     // Getters and Setters
-    public Long getLogId() { return logId; }
-    public void setLogId(Long logId) { this.logId = logId; }
+    public Long getLogId() {
+        return logId;
+    }
 
-    public Long getEndpointId() { return endpointId; }
-    public void setEndpointId(Long endpointId) { this.endpointId = endpointId; }
+    public void setLogId(Long logId) {
+        this.logId = logId;
+    }
 
-    public LocalDateTime getReceivedAt() { return receivedAt; }
-    public void setReceivedAt(LocalDateTime receivedAt) { this.receivedAt = receivedAt; }
+    public Long getEndpointId() {
+        return endpointId;
+    }
 
-    public String getHttpMethod() { return httpMethod; }
-    public void setHttpMethod(String httpMethod) { this.httpMethod = httpMethod; }
+    public void setEndpointId(Long endpointId) {
+        this.endpointId = endpointId;
+    }
 
-    public String getRequestPath() { return requestPath; }
-    public void setRequestPath(String requestPath) { this.requestPath = requestPath; }
+    public LocalDateTime getReceivedAt() {
+        return receivedAt;
+    }
 
-    public Integer getResponseStatus() { return responseStatus; }
-    public void setResponseStatus(Integer responseStatus) { this.responseStatus = responseStatus; }
+    public void setReceivedAt(LocalDateTime receivedAt) {
+        this.receivedAt = receivedAt;
+    }
 
-    public Integer getDurationMs() { return durationMs; }
-    public void setDurationMs(Integer durationMs) { this.durationMs = durationMs; }
+    public String getHttpMethod() {
+        return httpMethod;
+    }
 
-    public String getRequestBodySample() { return requestBodySample; }
-    public void setRequestBodySample(String requestBodySample) { this.requestBodySample = requestBodySample; }
+    public void setHttpMethod(String httpMethod) {
+        this.httpMethod = httpMethod;
+    }
+
+    public String getRequestPath() {
+        return requestPath;
+    }
+
+    public void setRequestPath(String requestPath) {
+        this.requestPath = requestPath;
+    }
+
+    public Integer getResponseStatus() {
+        return responseStatus;
+    }
+
+    public void setResponseStatus(Integer responseStatus) {
+        this.responseStatus = responseStatus;
+    }
+
+    public Integer getDurationMs() {
+        return durationMs;
+    }
+
+    public void setDurationMs(Integer durationMs) {
+        this.durationMs = durationMs;
+    }
+
+    public String getRequestBodySample() {
+        return requestBodySample;
+    }
+
+    public void setRequestBodySample(String requestBodySample) {
+        this.requestBodySample = requestBodySample;
+    }
+
+    public String getResponseSource() {
+        return responseSource;
+    }
+
+    public void setResponseSource(String responseSource) {
+        this.responseSource = responseSource;
+    }
+
+    public String getFallbackReason() {
+        return fallbackReason;
+    }
+
+    public void setFallbackReason(String fallbackReason) {
+        this.fallbackReason = fallbackReason;
+    }
 }
