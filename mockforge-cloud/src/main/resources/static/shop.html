@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Forge Goods — Everyday essentials</title>
+        <link rel="stylesheet" href="store.css">
+    </head>
+    <body>
+        <div class="announcement">Thoughtful essentials. A little more everyday.</div>
+        <header>
+            <a class="brand" href="/shop.html">FORGE <span>GOODS</span>
+                <i>®</i>
+            </a>
+            <nav>
+                <a href="#collection">The collection</a>
+                <button id="openBag" aria-label="Open shopping bag">Bag <span id="bagCount">0</span>
+                </button>
+            </nav>
+        </header>
+        <main>
+            <section class="hero">
+                <div class="heroCopy">
+                    <p class="eyebrow">THE EVERYDAY COLLECTION / 01</p>
+                    <h1>Small upgrades.<br>Better everydays.</h1>
+                    <p>Find your next desk companion, daily carry, or little essential. Good things belong in your routine.</p>
+                    <a class="primary" href="#collection">Explore the collection <span>↗</span>
+                    </a>
+                    <div class="heroNote">
+                        <span>01 — 05</span>
+                        <span>Objects for your everyday</span>
+                    </div>
+                </div>
+                <div class="heroArt" aria-hidden="true">
+                    <div class="halo">
+                    </div>
+                    <div class="artLabel">MADE FOR<br>YOUR EVERYDAY.</div>
+                    <div id="heroObject">
+                    </div>
+                    <span class="artCaption">CARRY A LITTLE POSSIBILITY.</span>
+                </div>
+            </section>
+            <section id="collection" class="collection">
+                <div class="collectionHeading">
+                    <div>
+                        <p class="eyebrow">FIND YOUR EVERYDAY</p>
+                        <h2>The collection<span id="productCount">
+                            </span>
+                        </h2>
+                    </div>
+                    <label class="search">
+                        <span class="srOnly">Search products</span>
+                        <input id="search" type="search" placeholder="Search the collection…">
+                    </label>
+                </div>
+                <div class="collectionBar">
+                    <div id="categories" class="categories">
+                    </div>
+                    <span>Considered choices. Simple pleasures.</span>
+                </div>
+                <p id="storeMessage" role="status">Getting the collection ready…</p>
+                <button id="retry" hidden>Try again</button>
+                <div id="products" class="grid">
+                </div>
+            </section>
+            <section class="closing">
+                <p class="eyebrow">LESS ORDINARY. MORE EVERYDAY.</p>
+                <h2>A good day starts<br>with the little things.</h2>
+                <a href="#collection">Find your next favourite ↗</a>
+            </section>
+        </main>
+        <footer>
+            <div class="brand">FORGE <span>GOODS</span>
+            </div>
+            <p>A demonstration storefront. No orders or payments are processed.</p>
+            <a href="/docs.html">Developer API explorer ↗</a>
+        </footer>
+        <dialog id="bagDialog" aria-labelledby="bagTitle">
+            <div class="bagHeader">
+                <h2 id="bagTitle">Your bag</h2>
+                <button id="closeBag" aria-label="Close shopping bag">✕</button>
+            </div>
+            <div id="bagItems">
+            </div>
+            <div class="bagTotal">
+                <span>Subtotal</span>
+                <strong id="bagTotal">$0.00</strong>
+            </div>
+            <p class="bagNote">This is a demo bag. No payment is collected and no order is placed.</p>
+            <button id="continueShopping" class="primary">Continue exploring ↗</button>
+        </dialog>
+        <script src="store.js">
+        </script>
+    </body>
+</html>

@@ -1,20 +1,143 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MockForge Cloud — Endpoint Tester</title><link rel="stylesheet" href="tester.css"></head>
-<body>
-<header><strong>MockForge Cloud</strong><span>Define an endpoint. Send a request. Inspect the response.</span></header>
-<main>
-<div class="columns">
-<aside>
-<section><h2>Workspace</h2><form id="workspaceForm"><label>Name<input id="workspaceName" required maxlength="120"></label><label>Description<input id="description" maxlength="500"></label><button>Create workspace</button></form><label>Selected workspace<select id="workspace"></select></label></section>
-<section><h2>Saved endpoints</h2><button id="refresh" class="secondary">Refresh</button><ul id="endpoints"></ul></section>
-<section><h2>Request history</h2><p class="hint">This tab only. Select an entry to load it.</p><ul id="history"></ul></section>
-</aside>
-<div>
-<section class="request"><h1>Request tester</h1><p class="hint">Test this MockForge server's /api and /mock routes.</p><form id="requestForm"><div class="requestLine"><label>Method<select id="requestMethod"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option></select></label><label class="grow">Request path<input id="requestPath" value="/api/workspaces" required spellcheck="false"></label><button id="send">Send request</button></div><label>Request headers (JSON object)<textarea id="requestHeaders" rows="3" spellcheck="false">{"Content-Type":"application/json"}</textarea></label><label>Request body<textarea id="requestBody" rows="6" placeholder='{"name":"My workspace"}' spellcheck="false"></textarea></label><p class="hint">GET and HEAD do not send a body. Your request headers and body are not persisted in request logs.</p></form><div class="examples"><button id="workspaceExample" class="secondary">Load workspace POST example</button><button id="endpointExample" class="secondary">Load endpoint POST example</button></div></section>
-<p id="notice" role="status"></p>
-<section class="response"><div class="responseTitle"><h2>Response</h2><span id="responseStatus">Not sent</span><span id="responseTime"></span><span id="responseSize"></span></div><label>Response body<pre id="responseBody">Send a request to see the response.</pre></label><details><summary>Response headers</summary><pre id="responseHeaders"></pre></details></section>
-<details class="editor"><summary>Create a mock endpoint</summary><section><form id="endpointForm"><label>Name<input id="name" required maxlength="120"></label><label>Mock route path<input id="path" value="/products" required></label><label>HTTP method<select id="method"><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option></select></label><label>Response status<input id="status" type="number" min="200" max="599" value="200" required></label><label>Content type<input id="type" value="application/json" required></label><label>Configured response body<textarea id="body" rows="4">[{"id":1,"name":"Notebook"}]</textarea></label><label>Execution mode<select id="mode"><option>MOCK</option><option>PROXY_FALLBACK</option></select></label><p class="hint">MOCK returns your saved response. PROXY_FALLBACK calls an approved upstream GET API and uses your configured response on timeout. No response caching.</p><label>Upstream URL (proxy only)<input id="upstream" placeholder="http://localhost:9001/slow"></label><label>Timeout (milliseconds)<input id="timeout" type="number" min="100" max="10000" value="1500"></label><button>Create endpoint</button></form></section></details>
-<section><h2>Endpoint request logs</h2><p class="hint">Use Logs beside a saved endpoint. Entries appear after background workers save them.</p><pre id="logs">No endpoint selected.</pre><button id="statsButton" class="secondary">Logging statistics</button><pre id="stats"></pre></section>
-</div></div>
-</main><script src="tester.js"></script></body></html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>MockForge Cloud — Endpoint Tester</title>
+        <link rel="stylesheet" href="tester.css">
+    </head>
+    <body>
+        <header>
+            <strong>MockForge Cloud</strong>
+            <span>Define an endpoint. Send a request. Inspect the response.</span>
+        </header>
+        <main>
+            <div class="columns">
+                <aside>
+                    <section>
+                        <h2>Workspace</h2>
+                        <form id="workspaceForm">
+                            <label>Name<input id="workspaceName" required maxlength="120">
+                            </label>
+                            <label>Description<input id="description" maxlength="500">
+                            </label>
+                            <button>Create workspace</button>
+                        </form>
+                        <label>Selected workspace<select id="workspace">
+                            </select>
+                        </label>
+                    </section>
+                    <section>
+                        <h2>Saved endpoints</h2>
+                        <button id="refresh" class="secondary">Refresh</button>
+                        <ul id="endpoints">
+                        </ul>
+                    </section>
+                    <section>
+                        <h2>Request history</h2>
+                        <p class="hint">This tab only. Select an entry to load it.</p>
+                        <ul id="history">
+                        </ul>
+                    </section>
+                </aside>
+                <div>
+                    <section class="request">
+                        <h1>Request tester</h1>
+                        <p class="hint">Test this MockForge server's /api and /mock routes.</p>
+                        <form id="requestForm">
+                            <div class="requestLine">
+                                <label>Method<select id="requestMethod">
+                                        <option>GET</option>
+                                        <option>POST</option>
+                                        <option>PUT</option>
+                                        <option>PATCH</option>
+                                        <option>DELETE</option>
+                                        <option>HEAD</option>
+                                        <option>OPTIONS</option>
+                                    </select>
+                                </label>
+                                <label class="grow">Request path<input id="requestPath" value="/api/workspaces" required spellcheck="false">
+                                </label>
+                                <button id="send">Send request</button>
+                            </div>
+                            <label>Request headers (JSON object)<textarea id="requestHeaders" rows="3" spellcheck="false">{"Content-Type":"application/json"}</textarea>
+                            </label>
+                            <label>Request body<textarea id="requestBody" rows="6" placeholder='{"name":"My workspace"}' spellcheck="false"></textarea>
+                            </label>
+                            <p class="hint">GET and HEAD do not send a body. Headers are omitted. Only top-level integer productId and quantity JSON fields may be sampled in mock request logs (max 256 bytes). Mock request bodies are limited to 32 KiB.</p>
+                        </form>
+                        <div class="examples">
+                            <button id="workspaceExample" class="secondary">Load workspace POST example</button>
+                            <button id="endpointExample" class="secondary">Load endpoint POST example</button>
+                        </div>
+                    </section>
+                    <p id="notice" role="status">
+                    </p>
+                    <section class="response">
+                        <div class="responseTitle">
+                            <h2>Response</h2>
+                            <span id="responseStatus">Not sent</span>
+                            <span id="responseTime">
+                            </span>
+                            <span id="responseSize">
+                            </span>
+                        </div>
+                        <label>Response body<pre id="responseBody">Send a request to see the response.</pre>
+                        </label>
+                        <details>
+                            <summary>Response headers</summary>
+                            <pre id="responseHeaders"></pre>
+                        </details>
+                    </section>
+                    <details class="editor">
+                        <summary>Create a mock endpoint</summary>
+                        <section>
+                            <form id="endpointForm">
+                                <label>Name<input id="name" required maxlength="120">
+                                </label>
+                                <label>Mock route path<input id="path" value="/products" required>
+                                </label>
+                                <label>HTTP method<select id="method">
+                                        <option>GET</option>
+                                        <option>POST</option>
+                                        <option>PUT</option>
+                                        <option>PATCH</option>
+                                        <option>DELETE</option>
+                                        <option>HEAD</option>
+                                        <option>OPTIONS</option>
+                                    </select>
+                                </label>
+                                <label>Response status<input id="status" type="number" min="200" max="599" value="200" required>
+                                </label>
+                                <label>Content type<input id="type" value="application/json" required>
+                                </label>
+                                <label>Configured response body<textarea id="body" rows="4">[{"id":1,"name":"Notebook"}]</textarea>
+                                </label>
+                                <label>Execution mode<select id="mode">
+                                        <option>MOCK</option>
+                                        <option>PROXY_FALLBACK</option>
+                                    </select>
+                                </label>
+                                <p class="hint">MOCK returns your saved response. PROXY_FALLBACK calls an approved upstream GET API and uses your configured response on timeout. No response caching.</p>
+                                <label>Upstream URL (proxy only)<input id="upstream" placeholder="http://localhost:9001/slow">
+                                </label>
+                                <label>Timeout (milliseconds)<input id="timeout" type="number" min="100" max="10000" value="1500">
+                                </label>
+                                <button>Create endpoint</button>
+                            </form>
+                        </section>
+                    </details>
+                    <section>
+                        <h2>Endpoint request logs</h2>
+                        <p class="hint">Use Logs beside a saved endpoint. Entries appear after background workers save them.</p>
+                        <pre id="logs">No endpoint selected.</pre>
+                        <button id="statsButton" class="secondary">Logging statistics</button>
+                        <pre id="stats"></pre>
+                    </section>
+                </div>
+            </div>
+        </main>
+        <script src="tester.js">
+        </script>
+    </body>
+</html>

@@ -1,4 +1,4 @@
-"""Wait for the servers, check the database through the API, and open the endpoint tester."""
+"""Wait for the servers, check the database through the API, and open the shop and API explorer."""
 import os
 import sys
 import time
@@ -26,11 +26,13 @@ if not wait_for('http://localhost:8080/api/workspaces', 90):
     print('Database credentials come from application.properties or DB_USERNAME / DB_PASSWORD.')
     sys.exit(1)
 
-print('\nREADY: http://localhost:8080/')
+print('\nSHOP: http://localhost:8080/shop.html')
+print('API EXPLORER: http://localhost:8080/docs.html')
 print('1. Create a workspace and define a mock endpoint.')
 print('2. Use the request panel to choose a method, enter a path and send a request.')
 print('3. The worker prints LOG SAVED after inserting the request into MySQL.')
 print('The frontend has no separate process; Spring Boot serves its HTML, CSS and JavaScript.')
 print('Keep the two server windows open. Press Ctrl+C in each one to stop.')
 if os.environ.get('MOCKFORGE_NO_BROWSER') != '1':
-    webbrowser.open('http://localhost:8080/')
+    webbrowser.open('http://localhost:8080/shop.html')
+    webbrowser.open_new_tab('http://localhost:8080/docs.html')

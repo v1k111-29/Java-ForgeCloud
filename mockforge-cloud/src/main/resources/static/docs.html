@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>MockForge Cloud — API Explorer</title>
+        <link rel="stylesheet" href="explorer.css">
+    </head>
+    <body>
+        <header>
+            <a href="/docs.html">MockForge Cloud <span>API EXPLORER</span>
+            </a>
+            <nav>
+                <a href="/shop.html" target="_blank" rel="noopener">Customer storefront ↗</a>
+                <a href="/">Request tester ↗</a>
+            </nav>
+        </header>
+        <main>
+            <div class="title">
+                <h1>MockForge API <span>1.0</span>
+                </h1>
+                <p>Interactive reference for the Spring Boot backend. Expand a route, click <b>Try it out</b>, enter parameters, and execute a real HTTP request.</p>
+                <p class="hint">Curated frontend documentation; it is not an automatically generated OpenAPI specification or a Python FastAPI server.</p>
+            </div>
+            <section class="demoPanel">
+                <h2>Shopping demo controls</h2>
+                <p>The customer storefront has no API controls. Configure its backend route here, then open it as a customer.</p>
+                <div class="demoFields">
+                    <label>Workspace ID<input id="demoWorkspace" type="number" min="1" value="1">
+                    </label>
+                    <label>Shop response<select id="demoSource">
+                            <option value="/products">Mock</option>
+                            <option value="/products/live">Live upstream</option>
+                            <option value="/products/slow">Slow upstream → fallback</option>
+                            <option value="/products/broken">Broken upstream → HTTP 500</option>
+                            <option value="custom">Custom mock route</option>
+                        </select>
+                    </label>
+                    <label>Custom route<input id="demoRoute" value="/products-v2">
+                    </label>
+                    <button id="loadDemo">Load runtime request below</button>
+                    <a class="button" id="openShop" href="/shop.html" target="_blank" rel="noopener">Open customer shop ↗</a>
+                </div>
+                <p id="demoNotice" class="hint">Run tools/seed_demo.ps1 if Shopping Demo has not been created.</p>
+            </section>
+            <div class="server">
+                <b>Server</b>
+                <code id="origin"></code>
+                <span>Same-origin requests · no authentication</span>
+            </div>
+            <div id="operations">
+            </div>
+            <section class="liveLogs">
+                <div class="logHeading">
+                    <h2>Recent request activity</h2>
+                    <label>
+                        <input id="pollLogs" type="checkbox" checked> Refresh every 2 seconds</label>
+                </div>
+                <p id="logStatus" class="hint">Reading /api/logs…</p>
+                <div class="tableWrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Log</th>
+                                <th>Endpoint</th>
+                                <th>Method / path</th>
+                                <th>Status</th>
+                                <th>Source</th>
+                                <th>Reason</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logRows">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <footer>Local classroom prototype. Logs are best effort. Configured timeout fallback does not cache responses.</footer>
+        </main>
+        <script src="explorer.js">
+        </script>
+    </body>
+</html>

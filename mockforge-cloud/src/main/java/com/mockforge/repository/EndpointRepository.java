@@ -1,97 +1,154 @@
-// Endpoint Repository is responsible for managing the persistence and retrieval of endpoint data from the database.
-
 package com.mockforge.repository;
 
 import java.sql.PreparedStatement;
+import java.time.LocalDateTime;
 import java.util.List;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
+
 import com.mockforge.model.Endpoint;
 
+// Save endpoint settings and turn database rows back into Endpoint objects.
 @Repository
 public class EndpointRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
     public EndpointRepository(JdbcTemplate jdbcTemplate) {
+
         this.jdbcTemplate = jdbcTemplate;
     }
 
+
     // Convert each database row into a Java object.
-    private final RowMapper<Endpoint> rowMapper = (rs, row) -> {
+    private final RowMapper<Endpoint> endpointRowMapper = (resultSet, rowNumber) -> {
+
         Endpoint endpoint = new Endpoint();
-        endpoint.setEndpointId(rs.getLong("endpoint_id"));
-        endpoint.setWorkspaceId(rs.getLong("workspace_id"));
-        endpoint.setEndpointName(rs.getString("name"));
-        endpoint.setMockUrlPath(rs.getString("route_path"));
-        endpoint.setHttpMethod(rs.getString("http_method"));
-        endpoint.setResponseStatus(rs.getInt("response_status"));
-        endpoint.setResponseContentType(rs.getString("response_content_type"));
-        endpoint.setResponseBody(rs.getString("response_body"));
-        endpoint.setEnabled(rs.getBoolean("enabled"));
-        endpoint.setExecutionMode(rs.getString("execution_mode"));
-        endpoint.setUpstreamUrl(rs.getString("upstream_url"));
-        endpoint.setTimeoutMs(rs.getInt("timeout_ms"));
-        endpoint.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+
+        endpoint.setEndpointId(resultSet.getLong("endpoint_id"));
+
+        endpoint.setWorkspaceId(resultSet.getLong("workspace_id"));
+
+        endpoint.setEndpointName(resultSet.getString("name"));
+
+        endpoint.setMockUrlPath(resultSet.getString("route_path"));
+
+        endpoint.setHttpMethod(resultSet.getString("http_method"));
+
+        endpoint.setResponseStatus(resultSet.getInt("response_status"));
+
+        endpoint.setResponseContentType(resultSet.getString("response_content_type"));
+
+        endpoint.setResponseBody(resultSet.getString("response_body"));
+
+        endpoint.setEnabled(resultSet.getBoolean("enabled"));
+
+        endpoint.setExecutionMode(resultSet.getString("execution_mode"));
+
+        endpoint.setUpstreamUrl(resultSet.getString("upstream_url"));
+
+        endpoint.setTimeoutMs(resultSet.getInt("timeout_ms"));
+
+        endpoint.setCreatedAt(resultSet.getObject("created_at", LocalDateTime.class));
+
         return endpoint;
     };
 
     // Save an endpoint and return the created record.
-    public Endpoint save(Endpoint endpoint) {
-        GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(connection -> {
-            PreparedStatement statement = connection.prepareStatement("INSERT INTO endpoints (workspace_id, name, route_path, http_method, response_status, response_content_type, response_body, enabled, execution_mode, upstream_url, timeout_ms)"
-                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", new String[]{"endpoint_id"});
-            statement.setObject(1, endpoint.getWorkspaceId());
-            statement.setObject(2, endpoint.getEndpointName());
-            statement.setObject(3, endpoint.getMockUrlPath());
-            statement.setObject(4, endpoint.getHttpMethod());
-            statement.setObject(5, endpoint.getResponseStatus());
-            statement.setObject(6, endpoint.getResponseContentType());
-            statement.setObject(7, endpoint.getResponseBody());
-            statement.setObject(8, endpoint.getEnabled());
-            statement.setObject(9, endpoint.getExecutionMode());
-            statement.setObject(10, endpoint.getUpstreamUrl());
-            statement.setObject(11, endpoint.getTimeoutMs());
-            return statement;
-        }, keyHolder);
-        return findById(keyHolder.getKey().longValue());
+    public Endpoint saveEndpoint(Endpoint endpoint) {
+
+        GeneratedKeyHolder generatedKeyHolder = new GeneratedKeyHolder();
+
+        jdbcTemplate.update(databaseConnection -> {
+
+            PreparedStatement preparedStatement = databaseConnection.prepareStatement("INSERT INTO endpoints (workspace_id, name, route_path, http_method, response_status, "
+                    + "response_content_type, response_body, enabled, execution_mode, upstream_url, timeout_ms)"
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", new String[]{
+                "endpoint_id"
+            });
+
+            preparedStatement.setObject(1, endpoint.getWorkspaceId());
+
+            preparedStatement.setObject(2, endpoint.getEndpointName());
+
+            preparedStatement.setObject(3, endpoint.getMockUrlPath());
+
+            preparedStatement.setObject(4, endpoint.getHttpMethod());
+
+            preparedStatement.setObject(5, endpoint.getResponseStatus());
+
+            preparedStatement.setObject(6, endpoint.getResponseContentType());
+
+            preparedStatement.setObject(7, endpoint.getResponseBody());
+
+            preparedStatement.setObject(8, endpoint.getEnabled());
+
+            preparedStatement.setObject(9, endpoint.getExecutionMode());
+
+            preparedStatement.setObject(10, endpoint.getUpstreamUrl());
+
+            preparedStatement.setObject(11, endpoint.getTimeoutMs());
+
+            return preparedStatement;
+        }, generatedKeyHolder);
+
+        return findEndpointById(generatedKeyHolder.getKey().longValue());
     }
+
 
     // Fetch all the endpoints.
-    public List<Endpoint> findAll() {
-        String sql = "SELECT * FROM endpoints ORDER BY endpoint_id DESC";
-        return jdbcTemplate.query(sql, rowMapper);
+    public List<Endpoint> findAllEndpoints() {
+
+        String sqlQuery = "SELECT * FROM endpoints ORDER BY endpoint_id DESC";
+
+        return jdbcTemplate.query(sqlQuery, endpointRowMapper);
     }
+
 
     // Fetch only the endpoints belonging to the selected workspace.
-    public List<Endpoint> findByWorkspaceId(long workspaceId) {
-        String sql = "SELECT * FROM endpoints WHERE workspace_id = ? ORDER BY endpoint_id DESC";
-        return jdbcTemplate.query(sql, rowMapper, workspaceId);
+    public List<Endpoint> findEndpointsByWorkspaceId(long workspaceId) {
+
+        String sqlQuery = "SELECT * FROM endpoints WHERE workspace_id = ? ORDER BY endpoint_id DESC";
+
+        return jdbcTemplate.query(sqlQuery, endpointRowMapper, workspaceId);
     }
+
 
     // Find one endpoint using its ID.
-    public Endpoint findById(long endpointId) {
-        List<Endpoint> endpoints = jdbcTemplate.query("SELECT * FROM endpoints WHERE endpoint_id = ?", rowMapper, endpointId);
+    public Endpoint findEndpointById(long endpointId) {
+
+        List<Endpoint> endpoints = jdbcTemplate.query("SELECT * FROM endpoints WHERE endpoint_id = ?", endpointRowMapper, endpointId);
+
         if (endpoints.isEmpty()) {
             return null;
         }
+
         return endpoints.get(0);
     }
+
 
     // Find an enabled endpoint using the workspace, HTTP method and path.
-    public Endpoint findMatch(long workspaceId, String httpMethod, String routePath) {
-        List<Endpoint> endpoints = jdbcTemplate.query("SELECT * FROM endpoints WHERE workspace_id = ? AND http_method = ? AND route_path = ? AND enabled = TRUE", rowMapper, workspaceId, httpMethod, routePath);
-        if (endpoints.isEmpty()) {
-            return null;
+    public Endpoint findMatchingEndpoint(long workspaceId, String httpMethod, String routePath) {
+
+        List<Endpoint> endpoints = jdbcTemplate.query("SELECT * FROM endpoints WHERE workspace_id = ? AND http_method = ? AND route_path = ? AND enabled = TRUE", endpointRowMapper, workspaceId, httpMethod, routePath);
+
+        // Keep routing exact even if an older MySQL table uses a case-insensitive collation.
+        for (Endpoint endpoint : endpoints) {
+            if (httpMethod.equals(endpoint.getHttpMethod()) && routePath.equals(endpoint.getMockUrlPath())) {
+                return endpoint;
+            }
         }
-        return endpoints.get(0);
+
+        return null;
     }
 
+
     // Enable or disable an existing endpoint.
-    public void setEnabled(long endpointId, boolean enabled) {
+    public void updateEndpointEnabled(long endpointId, boolean enabled) {
+
         jdbcTemplate.update("UPDATE endpoints SET enabled = ? WHERE endpoint_id = ?", enabled, endpointId);
     }
 }

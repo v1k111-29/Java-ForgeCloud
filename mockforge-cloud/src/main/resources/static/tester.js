@@ -1,149 +1,345 @@
-const element = id => document.getElementById(id);
-const history = [];
+// Find an existing control using its ID from the HTML file.
+function getPageElement(elementId) {
 
-async function api(path, method = 'GET', data) {
-    const response = await fetch(path, {
-        method,
-        headers: {'Content-Type': 'application/json'},
-        body: data === undefined ? undefined : JSON.stringify(data)
-    });
-    const text = await response.text();
-    if (!response.ok) throw new Error(text);
-    return text ? JSON.parse(text) : null;
+    return document.getElementById(elementId);
 }
+
+
+const requestHistory = [];
+
+
+// Send the management request and show the server error if it was rejected.
+async function callApi(requestPath, httpMethod = 'GET', requestData) {
+    const response = await fetch(requestPath, {
+        method: httpMethod,
+
+        headers: {
+            'Content-Type': 'application/json'
+        },
+
+        body: requestData === undefined ? undefined : JSON.stringify(requestData)
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+        throw new Error(responseText);
+    }
+
+    return responseText ? JSON.parse(responseText) : null;
+}
+
 
 function showError(error) {
-    element('notice').textContent = error.message;
+    getPageElement('notice').textContent = error.message;
 }
 
-function loadRequest(method, path, body = '') {
-    element('requestMethod').value = method;
-    element('requestPath').value = path;
-    element('requestBody').value = body;
-    element('notice').textContent = 'Request loaded. Edit it if needed, then click Send request.';
+
+// Loading a request fills the form; the user still chooses when to send it.
+function loadRequest(httpMethod, requestPath, requestBody = '') {
+    getPageElement('requestMethod').value = httpMethod;
+
+    getPageElement('requestPath').value = requestPath;
+
+    getPageElement('requestBody').value = requestBody;
+
+    getPageElement('notice').textContent = 'Request loaded. Edit it if needed, then click Send request.';
 }
 
+
+// Keep the last few requests available while this tab is open.
 function renderHistory() {
-    element('history').replaceChildren();
-    for (const request of history) {
+    getPageElement('history').replaceChildren();
+
+    for (const request of requestHistory) {
         const item = document.createElement('li');
+
         const button = document.createElement('button');
+
         button.className = 'secondary';
+
         button.textContent = request.method + ' ' + request.path + ' → ' + request.status;
+
         button.onclick = () => loadRequest(request.method, request.path, request.body);
+
         item.append(button);
-        element('history').append(item);
+
+        getPageElement('history').append(item);
     }
 }
 
 // Send real HTTP requests to this application's API and mock routes.
-element('requestForm').onsubmit = async event => {
+getPageElement('requestForm').onsubmit = async event => {
     event.preventDefault();
-    element('send').disabled = true;
-    element('notice').textContent = '';
-    element('responseStatus').textContent = 'Sending…';
-    element('responseBody').textContent = '';
-    element('responseHeaders').textContent = '';
-    element('responseTime').textContent = '';
-    element('responseSize').textContent = '';
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+
+    getPageElement('send').disabled = true;
+
+    getPageElement('notice').textContent = '';
+
+    getPageElement('responseStatus').textContent = 'Sending…';
+
+    getPageElement('responseBody').textContent = '';
+
+    getPageElement('responseHeaders').textContent = '';
+
+    getPageElement('responseTime').textContent = '';
+
+    getPageElement('responseSize').textContent = '';
+
+    const requestAbortController = new AbortController();
+
+    const requestTimeout = setTimeout(() => requestAbortController.abort(), 15000);
+
     try {
-        const method = element('requestMethod').value;
-        const input = element('requestPath').value.trim();
-        const url = new URL(input, window.location.origin);
-        if (url.origin !== window.location.origin || !/^\/(api|mock)(\/|$)/.test(url.pathname)) {
+        const httpMethod = getPageElement('requestMethod').value;
+
+        const inputControl = getPageElement('requestPath').value.trim();
+
+        const requestUrl = new URL(inputControl, window.location.origin);
+
+        if (requestUrl.origin !== window.location.origin || !/^\/(api|mock)(\/|$)/.test(requestUrl.pathname)) {
             throw new Error('Use an /api or /mock URL on this MockForge server.');
         }
-        const headers = JSON.parse(element('requestHeaders').value || '{}');
-        if (!headers || Array.isArray(headers) || typeof headers !== 'object') throw new Error('Headers must be a JSON object.');
-        for (const value of Object.values(headers)) {
-            if (typeof value !== 'string') throw new Error('Header values must be strings.');
+
+        const requestHeaders = JSON.parse(getPageElement('requestHeaders').value || '{}');
+
+        if (!requestHeaders || Array.isArray(requestHeaders) || typeof requestHeaders !== 'object') {
+            throw new Error('Headers must be a JSON object.');
         }
-        const body = element('requestBody').value;
-        const start = performance.now();
-        const response = await fetch(url, {
-            method, headers, signal: controller.signal, cache: 'no-store',
-            body: method === 'GET' || method === 'HEAD' || !body ? undefined : body
+
+        for (const value of Object.values(requestHeaders)) {
+            if (typeof value !== 'string') {
+                throw new Error('Header values must be strings.');
+            }
+        }
+
+        const requestBody = getPageElement('requestBody').value;
+
+        const requestStartTime = performance.now();
+
+        const response = await fetch(requestUrl, {
+            method: httpMethod,
+
+            headers: requestHeaders,
+
+            signal: requestAbortController.signal,
+
+            cache: 'no-store',
+
+            body: httpMethod === 'GET' || httpMethod === 'HEAD' || !requestBody ? undefined : requestBody
         });
-        const text = await response.text();
-        const duration = Math.round(performance.now() - start);
-        element('responseStatus').textContent = response.status + ' ' + response.statusText;
-        element('responseTime').textContent = duration + ' ms';
-        element('responseSize').textContent = new TextEncoder().encode(text).length + ' bytes';
-        try { element('responseBody').textContent = JSON.stringify(JSON.parse(text), null, 2); }
-        catch (error) { element('responseBody').textContent = text || '(empty response body)'; }
-        element('responseHeaders').textContent = Array.from(response.headers, ([key, value]) => key + ': ' + value).join('\n');
-        history.unshift({method, path: url.pathname + url.search, body, status: response.status});
-        if (history.length > 10) history.pop();
+
+        const responseText = await response.text();
+
+        const requestDurationMilliseconds = Math.round(performance.now() - requestStartTime);
+
+        getPageElement('responseStatus').textContent = response.status + ' ' + response.statusText;
+
+        getPageElement('responseTime').textContent = requestDurationMilliseconds + ' ms';
+
+        getPageElement('responseSize').textContent = new TextEncoder().encode(responseText).length + ' bytes';
+
+        try {
+            getPageElement('responseBody').textContent = JSON.stringify(JSON.parse(responseText), null, 2);
+        } catch (error) {
+            getPageElement('responseBody').textContent = responseText || '(empty response body)';
+        }
+
+        getPageElement('responseHeaders').textContent = Array.from(response.headers, ([key, value]) => key + ': ' + value).join('\n');
+
+        requestHistory.unshift({
+            method: httpMethod,
+
+            path: requestUrl.pathname + requestUrl.search,
+
+            body: requestBody,
+
+            status: response.status
+        });
+
+        if (requestHistory.length > 10) {
+            requestHistory.pop();
+        }
+
         renderHistory();
-        if (method !== 'GET' && method !== 'HEAD') await workspaces(element('workspace').value);
+
+        if (httpMethod !== 'GET' && httpMethod !== 'HEAD') {
+            await loadWorkspaces(getPageElement('workspace').value);
+        }
     } catch (error) {
-        element('responseStatus').textContent = 'Request not completed';
+        getPageElement('responseStatus').textContent = 'Request not completed';
+
         showError(error.name === 'AbortError' ? new Error('Request exceeded the 15-second client timeout.') : error);
     } finally {
-        clearTimeout(timer);
-        element('send').disabled = false;
+        clearTimeout(requestTimeout);
+
+        getPageElement('send').disabled = false;
     }
 };
 
-async function workspaces(selected) {
-    const rows = await api('/api/workspaces');
-    element('workspace').replaceChildren();
-    for (const workspace of rows) element('workspace').add(new Option(workspace.name, workspace.workspaceId));
-    if (selected && rows.some(workspace => String(workspace.workspaceId) === String(selected))) element('workspace').value = selected;
-    await endpoints();
+
+// Refresh the workspace selector, then load the selected workspace's endpoints.
+async function loadWorkspaces(selectedWorkspaceId) {
+    const workspaceRecords = await callApi('/api/workspaces');
+
+    getPageElement('workspace').replaceChildren();
+
+    for (const workspace of workspaceRecords) {
+        getPageElement('workspace').add(new Option(workspace.name, workspace.workspaceId));
+    }
+
+    if (selectedWorkspaceId && workspaceRecords.some(workspace => String(workspace.workspaceId) === String(selectedWorkspaceId))) {
+        getPageElement('workspace').value = selectedWorkspaceId;
+    }
+
+    await loadEndpoints();
 }
 
-async function endpoints() {
-    element('endpoints').replaceChildren();
-    const workspaceId = element('workspace').value;
-    if (!workspaceId) return;
-    for (const endpoint of await api('/api/endpoints/workspace/' + workspaceId)) {
+
+// Each saved definition gets buttons for testing it, reading its logs and toggling it.
+async function loadEndpoints() {
+    getPageElement('endpoints').replaceChildren();
+
+    const workspaceId = getPageElement('workspace').value;
+
+    if (!workspaceId) {
+        return;
+    }
+
+    for (const endpoint of await callApi('/api/endpoints/workspace/' + workspaceId)) {
         const item = document.createElement('li');
-        const title = document.createElement('div');
-        title.textContent = endpoint.httpMethod + ' ' + endpoint.mockUrlPath + ' · ' + endpoint.executionMode + ' · ' + (endpoint.enabled ? 'enabled' : 'disabled');
-        item.append(title);
-        const supported = ['MOCK', 'PROXY_FALLBACK'].includes(endpoint.executionMode);
+
+        const titleElement = document.createElement('div');
+
+        titleElement.textContent = endpoint.httpMethod + ' ' + endpoint.mockUrlPath + ' · ' + endpoint.executionMode + ' · ' + (endpoint.enabled ? 'enabled' : 'disabled');
+
+        item.append(titleElement);
+
+        const supportedExecutionMode = [
+            'MOCK', 'PROXY_FALLBACK'
+        ].includes(endpoint.executionMode);
+
         for (const [label, action] of [
-            ['Load request', () => { if (!supported) throw new Error('This old execution mode was removed. Create a new MOCK or PROXY_FALLBACK endpoint.'); loadRequest(endpoint.httpMethod, '/mock/workspaces/' + workspaceId + endpoint.mockUrlPath); }],
-            ['Logs', async () => { element('logs').textContent = JSON.stringify(await api('/api/endpoints/' + endpoint.endpointId + '/logs'), null, 2); }],
-            ['Toggle enabled', async () => { await api('/api/endpoints/' + endpoint.endpointId + '/enabled', 'PATCH', {enabled: !endpoint.enabled}); await endpoints(); }]
+
+            [
+                'Load request', () => {
+                    if (!supportedExecutionMode) {
+                        throw new Error('This old execution mode was removed. Create a new MOCK or PROXY_FALLBACK endpoint.');
+                    }
+                    loadRequest(endpoint.httpMethod, '/mock/workspaces/' + workspaceId + endpoint.mockUrlPath);
+                }
+            ],
+            [
+                'Logs', async () => {
+                    getPageElement('logs').textContent = JSON.stringify(await callApi('/api/endpoints/' + endpoint.endpointId + '/logs'), null, 2);
+                }
+            ],
+            [
+                'Toggle enabled', async () => {
+                    await callApi('/api/endpoints/' + endpoint.endpointId + '/enabled', 'PATCH', {
+                        enabled: !endpoint.enabled
+                    });
+                    await loadEndpoints();
+                }
+            ]
         ]) {
             const button = document.createElement('button');
-            button.className = 'secondary'; button.textContent = label;
+
+            button.className = 'secondary';
+            button.textContent = label;
+
             button.onclick = () => Promise.resolve().then(action).catch(showError);
+
             item.append(button);
         }
-        element('endpoints').append(item);
+
+        getPageElement('endpoints').append(item);
     }
 }
 
-element('workspaceForm').onsubmit = async event => {
+getPageElement('workspaceForm').onsubmit = async event => {
     event.preventDefault();
+
     try {
-        const workspace = await api('/api/workspaces', 'POST', {name: element('workspaceName').value, description: element('description').value});
-        await workspaces(workspace.workspaceId);
-        element('notice').textContent = 'Workspace created.';
-    } catch (error) { showError(error); }
-};
-element('endpointForm').onsubmit = async event => {
-    event.preventDefault();
-    try {
-        if (!element('workspace').value) throw new Error('Create or select a workspace first.');
-        await api('/api/endpoints', 'POST', {
-            workspaceId: Number(element('workspace').value), endpointName: element('name').value,
-            mockUrlPath: element('path').value, httpMethod: element('method').value,
-            responseStatus: Number(element('status').value), responseContentType: element('type').value,
-            responseBody: element('body').value, executionMode: element('mode').value,
-            upstreamUrl: element('upstream').value || null, timeoutMs: Number(element('timeout').value)
+        const workspace = await callApi('/api/workspaces', 'POST', {
+            name: getPageElement('workspaceName').value,
+
+            description: getPageElement('description').value
         });
-        await endpoints(); element('notice').textContent = 'Endpoint created. Use Load request to test it.';
-    } catch (error) { showError(error); }
+
+        await loadWorkspaces(workspace.workspaceId);
+
+        getPageElement('notice').textContent = 'Workspace created.';
+    } catch (error) {
+        showError(error);
+    }
 };
-element('workspaceExample').onclick = () => loadRequest('POST', '/api/workspaces', JSON.stringify({name: 'API Testing', description: 'Requests from the tester'}, null, 2));
-element('endpointExample').onclick = () => loadRequest('POST', '/api/endpoints', JSON.stringify({workspaceId: Number(element('workspace').value) || 1, endpointName: 'Products', mockUrlPath: '/products', httpMethod: 'GET', responseStatus: 200, responseContentType: 'application/json', responseBody: '[{"id":1,"name":"Notebook"}]'}, null, 2));
-element('workspace').onchange = () => endpoints().catch(showError);
-element('refresh').onclick = () => endpoints().catch(showError);
-element('statsButton').onclick = () => api('/api/logging/stats').then(stats => { element('stats').textContent = JSON.stringify(stats, null, 2); }).catch(showError);
-workspaces().catch(showError);
+
+getPageElement('endpointForm').onsubmit = async event => {
+    event.preventDefault();
+
+    try {
+        if (!getPageElement('workspace').value) {
+            throw new Error('Create or select a workspace first.');
+        }
+
+        await callApi('/api/endpoints', 'POST', {
+            workspaceId: Number(getPageElement('workspace').value),
+
+            endpointName: getPageElement('name').value,
+
+            mockUrlPath: getPageElement('path').value,
+
+            httpMethod: getPageElement('method').value,
+
+            responseStatus: Number(getPageElement('status').value),
+
+            responseContentType: getPageElement('type').value,
+
+            responseBody: getPageElement('body').value,
+
+            executionMode: getPageElement('mode').value,
+
+            upstreamUrl: getPageElement('upstream').value || null,
+
+            timeoutMs: Number(getPageElement('timeout').value)
+        });
+
+        await loadEndpoints();
+        getPageElement('notice').textContent = 'Endpoint created. Use Load request to test it.';
+    } catch (error) {
+        showError(error);
+    }
+};
+
+getPageElement('workspaceExample').onclick = () => loadRequest('POST', '/api/workspaces', JSON.stringify({
+    name: 'API Testing',
+
+    description: 'Requests from the tester'
+}, null, 2));
+
+getPageElement('endpointExample').onclick = () => loadRequest('POST', '/api/endpoints', JSON.stringify({
+    workspaceId: Number(getPageElement('workspace').value) || 1,
+
+    endpointName: 'Products',
+
+    mockUrlPath: '/products',
+
+    httpMethod: 'GET',
+
+    responseStatus: 200,
+
+    responseContentType: 'application/json',
+
+    responseBody: '[{"id":1,"name":"Notebook"}]'
+}, null, 2));
+
+getPageElement('workspace').onchange = () => loadEndpoints().catch(showError);
+
+getPageElement('refresh').onclick = () => loadEndpoints().catch(showError);
+
+getPageElement('statsButton').onclick = () => callApi('/api/logging/stats').then(stats => {
+    getPageElement('stats').textContent = JSON.stringify(stats, null, 2);
+}).catch(showError);
+
+loadWorkspaces().catch(showError);

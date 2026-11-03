@@ -38,7 +38,7 @@ Follow workspace creation first:
 
 1. The browser sends JSON to POST /api/workspaces.
 2. WorkspaceController receives a Workspace object. @Valid checks the annotations on its fields.
-3. WorkspaceService trims the name and asks the repository to save it.
+3. WorkspaceService.createWorkspace() trims the name and asks the repository to save it.
 4. WorkspaceRepository inserts a row using JdbcTemplate. PreparedStatement fills the SQL placeholders. GeneratedKeyHolder reads the new ID.
 5. The repository reads the created row and returns a Workspace object.
 6. The controller sends that object as JSON with status 201.
@@ -51,7 +51,7 @@ After studying that flow, follow endpoint creation in the same order: model, rep
 - Repository: String sql holds a query; question marks receive separate values; RowMapper turns each database row into an object. A repository does not choose HTTP response codes.
 - Service: checks such as workspace existence and valid proxy configuration. Controllers call these methods.
 - Controller: URL mappings, request parameters, validation activation and response statuses.
-- AsyncRequestLogger: submit() uses offer(), which returns immediately. saveQueuedLogs() runs on worker threads. If the queue is full, the rejected counter increases.
+- AsyncRequestLogger: submitRequestLog() uses offer(), which returns immediately. saveQueuedLogs() runs on worker threads. If the queue is full, the rejected counter increases.
 - MockService: begins with the saved mock response. Proxy mode replaces it only after the upstream response succeeds. Timeout leaves the mock response in place and records FALLBACK.
 
 ## Concepts that are new compared with your original code
@@ -78,9 +78,25 @@ After studying that flow, follow endpoint creation in the same order: model, rep
 | [demo_upstream.py](<C:/Users/salem/OneDrive/Desktop/java/java project/mockforge-cloud/tools/demo_upstream.py>) | Created | Optional local API for fast, slow and error demonstrations. |
 | [README.md](<C:/Users/salem/OneDrive/Desktop/java/java project/mockforge-cloud/README.md>) | Created | Startup instructions, API examples and limitations. |
 
-Existing MockforgeCloudApplicationTests.java was retained. The Java refactor did not change the database scripts, dashboard, configuration, POM or tests. The earlier temporary generation scripts were removed. MySQL live connection and migration verification are still pending; automated tests use H2.
+Existing MockforgeCloudApplicationTests.java was retained. The Java refactor did not change the database scripts, dashboard, configuration, POM or tests. The earlier temporary generation scripts were removed. Automated tests use H2; see ALIGNMENT.md and logs/mysql-verification-report.json for the subsequent real-MySQL verification status.
 
 
 ## Current endpoint tester
 
-The main page is now a local Postman-style request tester. static/index.html defines the forms, static/tester.css styles them, and static/tester.js sends requests and renders actual responses. The shopping demo and response-cache implementation have been removed. Core controller/service/repository responsibilities above are unchanged. Start.bat and tools/start_demo.py now open the main tester. Old database definitions are retained but unsupported execution modes must be recreated.
+The main page is a local Postman-style request tester. static/index.html defines the forms, static/tester.css styles them, and static/tester.js sends requests and renders actual responses. The customer shop is at /shop.html and the API explorer is at /docs.html. The response cache was removed. Core controller/service/repository responsibilities above are unchanged. Start.bat and tools/start_demo.py open the shop and explorer. Old database definitions are retained but unsupported execution modes must be recreated.
+
+
+## Alignment modules added afterward
+
+- model/RequestLogEvent.java is an immutable queue snapshot. RequestLog remains a mutable database/JSON model.
+- service/RequestBodySampler.java enforces the 32 KiB mock-body limit and samples only approved top-level productId and quantity integers. Header values and all other data are omitted.
+- EndpointController also supports POST /api/workspaces/{workspaceId}/endpoints. Endpoint accepts and returns document names name/routePath plus compatible endpointName/mockUrlPath properties.
+- tools/verification/mysql_relay.py and verify_mysql.py run an isolated failure/restart check against local MySQL. ShutdownApp.java gracefully closes just that temporary app using its locally enabled admin bean.
+- Credential handling remains a deliberate exception: the user asked to keep the password in application.properties.
+
+See ALIGNMENT.md for the complete file list, simple request-flow explanation and verified results. All 10 automated tests passed. The isolated real-MySQL test also passed concurrency, queued shutdown, restart persistence, database disconnect and recovery checks.
+
+
+## Readability refactor
+
+See REFACTOR_NOTES.md for the complete edited-file list and the current method names. The code uses full variable names, separate statements, extra space between logical steps, and comments explaining decisions. HTTP URLs, JSON fields, schema and behavior are preserved.

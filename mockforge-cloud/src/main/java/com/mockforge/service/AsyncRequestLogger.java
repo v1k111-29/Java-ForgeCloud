@@ -7,100 +7,133 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
 import jakarta.annotation.PreDestroy;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
 import com.mockforge.model.RequestLog;
+import com.mockforge.model.RequestLogEvent;
 import com.mockforge.repository.RequestLogRepository;
 
 @Service
 public class AsyncRequestLogger {
 
     private final RequestLogRepository requestLogRepository;
-    private final BlockingQueue<RequestLog> queue;
-    private final ExecutorService workers;
+
+    private final BlockingQueue<RequestLogEvent> requestLogQueue;
+
+    private final ExecutorService loggingWorkers;
+
     private final Logger logger = LoggerFactory.getLogger(AsyncRequestLogger.class);
 
     // These counters can be updated safely by multiple threads.
-    private final AtomicLong rejected = new AtomicLong();
-    private final AtomicLong failed = new AtomicLong();
-    private final AtomicLong saved = new AtomicLong();
+    private final AtomicLong rejectedLogCount = new AtomicLong();
+
+    private final AtomicLong failedLogCount = new AtomicLong();
+
+    private final AtomicLong savedLogCount = new AtomicLong();
 
     // volatile makes changes to this flag visible to the worker threads.
-    private volatile boolean accepting = true;
+    private volatile boolean acceptingNewLogs = true;
 
     public AsyncRequestLogger(RequestLogRepository requestLogRepository,
-    @Value("${mockforge.logging.capacity:500}") int capacity,
-    @Value("${mockforge.logging.workers:2}") int workerCount) {
-        if (capacity < 1 || workerCount < 1) {
+        @Value("${mockforge.logging.capacity:500}") int queueCapacity,
+        @Value("${mockforge.logging.workers:2}") int loggingWorkerCount) {
+
+        if (queueCapacity < 1 || loggingWorkerCount < 1) {
             throw new IllegalArgumentException("Queue and workers must be positive");
         }
+
         this.requestLogRepository = requestLogRepository;
-        this.queue = new ArrayBlockingQueue<>(capacity);
-        this.workers = Executors.newFixedThreadPool(workerCount);
+
+        this.requestLogQueue = new ArrayBlockingQueue<>(queueCapacity);
+
+        this.loggingWorkers = Executors.newFixedThreadPool(loggingWorkerCount);
+
         // Start a fixed number of workers instead of a new thread for each log.
-        for (int i = 0; i < workerCount; i++) {
-            workers.submit(this::saveQueuedLogs);
+        for (int workerNumber = 0; workerNumber < loggingWorkerCount; workerNumber++) {
+            loggingWorkers.submit(this::saveQueuedLogs);
         }
     }
 
+
     // Take logs from the queue and save them in the background.
     private void saveQueuedLogs() {
-        while (accepting || !queue.isEmpty()) {
+
+        while (acceptingNewLogs || !requestLogQueue.isEmpty()) {
             try {
-                RequestLog log = queue.poll(200, TimeUnit.MILLISECONDS);
-                if (log != null) {
+                RequestLogEvent requestLogEvent = requestLogQueue.poll(200, TimeUnit.MILLISECONDS);
+
+                if (requestLogEvent != null) {
                     try {
-                        requestLogRepository.save(log);
-                        saved.incrementAndGet();
+                        RequestLog requestLog = requestLogEvent.toRequestLog();
+
+                        requestLogRepository.saveRequestLog(requestLog);
+
+                        savedLogCount.incrementAndGet();
+
                         logger.info("LOG SAVED: endpoint={}, source={}, status={} (MySQL insert completed)",
-                                log.getEndpointId(), log.getResponseSource(), log.getResponseStatus());
+                            requestLog.getEndpointId(), requestLog.getResponseSource(), requestLog.getResponseStatus());
                     } catch (Exception exception) {
-                        failed.incrementAndGet();
+                        failedLogCount.incrementAndGet();
+
                         logger.warn("Request log could not be saved");
                     }
                 }
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
+
                 break;
             }
         }
     }
 
+
     // Add a log without making the mock request wait for a database insert.
-    public synchronized void submit(RequestLog log) {
-        if (!accepting || !queue.offer(log)) {
-            rejected.incrementAndGet();
+    public synchronized void submitRequestLog(RequestLog requestLog) {
+
+        if (!acceptingNewLogs || !requestLogQueue.offer(new RequestLogEvent(requestLog))) {
+            rejectedLogCount.incrementAndGet();
+
             logger.warn("LOG REJECTED: queue full or application stopping");
         }
     }
 
+
     // Return the queue size and log counters for the dashboard.
-    public Map<String, Long> stats() {
+    public Map<String, Long> getLoggingStatistics() {
+
         return Map.of(
-        "queued", (long) queue.size(),
-        "saved", saved.get(),
-        "rejected", rejected.get(),
-        "failed", failed.get());
+            "queued", (long) requestLogQueue.size(),
+            "saved", savedLogCount.get(),
+            "rejected", rejectedLogCount.get(),
+            "failed", failedLogCount.get());
     }
+
 
     // Allow workers up to five seconds to finish when the application stops.
 
     @PreDestroy
+    public void stopLoggingWorkers() {
 
-    public void stop() {
         synchronized (this) {
-            accepting = false;
+
+            acceptingNewLogs = false;
         }
-        workers.shutdown();
+
+        loggingWorkers.shutdown();
+
         try {
-            if (!workers.awaitTermination(5, TimeUnit.SECONDS)) {
-                workers.shutdownNow();
+            if (!loggingWorkers.awaitTermination(5, TimeUnit.SECONDS)) {
+                loggingWorkers.shutdownNow();
             }
         } catch (InterruptedException exception) {
-            workers.shutdownNow();
+            loggingWorkers.shutdownNow();
+
             Thread.currentThread().interrupt();
         }
     }

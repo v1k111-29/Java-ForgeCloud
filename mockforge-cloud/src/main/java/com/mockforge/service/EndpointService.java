@@ -3,108 +3,174 @@ package com.mockforge.service;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import com.mockforge.model.Endpoint;
-import com.mockforge.repository.EndpointRepository;
+import java.util.Set;
+
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.mockforge.model.Endpoint;
+import com.mockforge.repository.EndpointRepository;
+
 @Service
 public class EndpointService {
 
     private final EndpointRepository endpointRepository;
+
     private final WorkspaceService workspaceService;
-    private final List<String> allowedOrigins;
 
-    public EndpointService(EndpointRepository endpointRepository, WorkspaceService workspaceService,
-            @Value("${mockforge.proxy.allowed-origins:}") List<String> allowedOrigins) {
+    private final List<String> allowedUpstreamOrigins;
+
+    private final Validator validator;
+
+    public EndpointService(EndpointRepository endpointRepository,
+        WorkspaceService workspaceService,
+        @Value("${mockforge.proxy.allowed-origins:}") List<String> allowedUpstreamOrigins,
+        Validator validator) {
+
         this.endpointRepository = endpointRepository;
+
         this.workspaceService = workspaceService;
-        this.allowedOrigins = allowedOrigins;
+
+        this.allowedUpstreamOrigins = allowedUpstreamOrigins;
+
+        this.validator = validator;
     }
 
-    // Remove one trailing slash so /products and /products/ match.
-    public static String normalizePath(String path) {
-        if (path.length() > 1 && path.endsWith("/")) {
-            return path.substring(0, path.length() - 1);
+
+    // Treat /products and /products/ as the same route. Keep the root / unchanged.
+    public static String normalizePath(String routePath) {
+
+        if (routePath.length() > 1 && routePath.endsWith("/")) {
+            return routePath.substring(0, routePath.length() - 1);
         }
-        return path;
+
+        return routePath;
     }
 
-    // Check the workspace and endpoint settings before saving.
-    public Endpoint create(Endpoint endpoint) {
-        
-        workspaceService.requireExists(endpoint.getWorkspaceId());
+
+    // Check the endpoint settings before asking the repository to save them.
+    public Endpoint createEndpoint(Endpoint endpoint) {
+
+        // The nested API fills in workspaceId from the URL before reaching this check.
+        Set<ConstraintViolation<Endpoint>> validationErrors = validator.validate(endpoint);
+
+        if (!validationErrors.isEmpty()) {
+            throw new ConstraintViolationException(validationErrors);
+        }
+
+        workspaceService.checkWorkspaceExists(endpoint.getWorkspaceId());
+
         endpoint.setMockUrlPath(normalizePath(endpoint.getMockUrlPath()));
-        
-        if (endpoint.getMockUrlPath().matches(".*[?#%].*") || endpoint.getMockUrlPath().contains("//")) {
-            throw badRequest("Use a plain path without query, fragment, encoding, or repeated slashes");
+
+        String routePath = endpoint.getMockUrlPath();
+
+        if (routePath.matches(".*[?#%].*") || routePath.contains("//")) {
+            throw createBadRequestException(
+                "Use a plain path without query, fragment, encoding, or repeated slashes");
         }
+
         try {
             MediaType.parseMediaType(endpoint.getResponseContentType());
-        } catch (IllegalArgumentException ex) {
-            throw badRequest("Invalid response content type");
+        } catch (IllegalArgumentException exception) {
+            throw createBadRequestException("Invalid response content type");
         }
+
         if (endpoint.getResponseBody().getBytes(StandardCharsets.UTF_8).length > 32768) {
-            throw badRequest("Response body exceeds 32 KiB");
+            throw createBadRequestException("Response body exceeds 32 KiB");
         }
+
         if (endpoint.getEnabled() == null) {
             endpoint.setEnabled(true);
         }
+
         if ("PROXY_FALLBACK".equals(endpoint.getExecutionMode())) {
             if (!"GET".equals(endpoint.getHttpMethod())) {
-                throw badRequest("Proxy mode supports GET only");
+                throw createBadRequestException("Proxy mode supports GET only");
             }
-            validateUpstream(endpoint.getUpstreamUrl());
+
+            validateUpstreamUrl(endpoint.getUpstreamUrl());
         }
-        return endpointRepository.save(endpoint);
+
+        return endpointRepository.saveEndpoint(endpoint);
     }
 
-    // Allow proxy calls only to destinations configured for this application.
-    public URI validateUpstream(String url) {
+
+    // The upstream URL must belong to an origin approved in application settings.
+    public URI validateUpstreamUrl(String upstreamUrl) {
+
         try {
-            URI uri = URI.create(url);
-            String origin = uri.getScheme() + "://" + uri.getRawAuthority();
-            if (!("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())) || uri.getHost() == null
-                    || uri.getUserInfo() != null || uri.getFragment() != null || !allowedOrigins.contains(origin)) {
-                throw badRequest("Upstream origin is not allowed");
+            URI upstreamUri = URI.create(upstreamUrl);
+
+            String upstreamOrigin = upstreamUri.getScheme() + "://" + upstreamUri.getRawAuthority();
+
+            boolean supportedProtocol = "http".equals(upstreamUri.getScheme())
+                || "https".equals(upstreamUri.getScheme());
+
+            if (!supportedProtocol
+                    || upstreamUri.getHost() == null
+                    || upstreamUri.getUserInfo() != null
+                    || upstreamUri.getFragment() != null
+                    || !allowedUpstreamOrigins.contains(upstreamOrigin)) {
+
+                throw createBadRequestException("Upstream origin is not allowed");
             }
-            return uri;
-        } catch (IllegalArgumentException | NullPointerException ex) {
-            throw badRequest("Invalid upstream URL");
+
+            return upstreamUri;
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw createBadRequestException("Invalid upstream URL");
         }
     }
 
-    // Return a 404 error if the endpoint does not exist.
-    public Endpoint requireEndpoint(long endpointId) {
-        Endpoint endpoint = endpointRepository.findById(endpointId);
+
+    // Return the endpoint, or stop with a 404 when its ID is unknown.
+    public Endpoint getEndpointOrThrow(long endpointId) {
+
+        Endpoint endpoint = endpointRepository.findEndpointById(endpointId);
+
         if (endpoint == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Endpoint not found");
         }
+
         return endpoint;
     }
 
-    // Return all the endpoint definitions.
-    public List<Endpoint> list() {
-        return endpointRepository.findAll();
+
+    // Fetch every endpoint definition saved in the database.
+    public List<Endpoint> getAllEndpoints() {
+
+        return endpointRepository.findAllEndpoints();
     }
 
-    // Check the workspace and return its endpoints.
-    public List<Endpoint> listForWorkspace(long workspaceId) {
-        workspaceService.requireExists(workspaceId);
-        return endpointRepository.findByWorkspaceId(workspaceId);
+
+    // Check the workspace first so an unknown ID returns 404 instead of an empty list.
+    public List<Endpoint> getEndpointsByWorkspaceId(long workspaceId) {
+
+        workspaceService.checkWorkspaceExists(workspaceId);
+
+        return endpointRepository.findEndpointsByWorkspaceId(workspaceId);
     }
 
-    // Check that the endpoint exists before changing its enabled value.
-    public Endpoint setEnabled(long endpointId, boolean enabled) {
-        requireEndpoint(endpointId);
-        endpointRepository.setEnabled(endpointId, enabled);
-        return requireEndpoint(endpointId);
+
+    // Read the updated row so the caller receives the endpoint's current settings.
+    public Endpoint updateEndpointEnabled(long endpointId, boolean enabled) {
+
+        getEndpointOrThrow(endpointId);
+
+        endpointRepository.updateEndpointEnabled(endpointId, enabled);
+
+        return getEndpointOrThrow(endpointId);
     }
-    // Create a 400 response for invalid settings.
-    private ResponseStatusException badRequest(String message) {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+
+
+    private ResponseStatusException createBadRequestException(String errorMessage) {
+
+        return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMessage);
     }
 }
