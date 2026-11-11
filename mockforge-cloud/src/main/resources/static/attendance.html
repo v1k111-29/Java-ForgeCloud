@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Attendance</title>
+
+<style>
+    body   { font-family: system-ui, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+    ul     { padding: 0; }
+    li     { display: flex; justify-content: space-between; padding: .5rem 0;
+             border-bottom: 1px solid #ddd; list-style: none; }
+    button { padding: .5rem 1rem; }
+    .error { color: #b00020; }
+
+    /* Green box that shows which parts of the page come from MockForge. */
+    #mockforgeBox { background: #eefaf0; border: 1px solid #2e7d32; border-radius: 6px;
+                    padding: .75rem 1rem; margin: 1rem 0; font-size: .9rem; }
+    #mockforgeBox code { background: #fff; padding: 0 .25rem; }
+</style>
+</head>
+
+<body>
+
+<h1>Class Attendance</h1>
+
+<!-- Live panel: JavaScript writes one line here for every MockForge call, so you can watch them happen. -->
+<div id="mockforgeBox">
+    <strong>MockForge status</strong>
+    <div id="mockforgeInfo">Not contacted yet.</div>
+</div>
+
+<ul id="roster"></ul>
+<button id="submitButton" hidden>Submit attendance</button>
+<button id="retryButton"  hidden>Retry</button>
+<p id="message"></p>
+
+
+<script>
+/* =====================================================================
+   MOCKFORGE DECLARATION  (the ONLY place you need to edit to point
+   this page at a different server, workspace or route)
+   ---------------------------------------------------------------------
+   MockForge is a fake backend server running on our own computer.
+   This page has NO student list inside it. It asks MockForge for the list,
+   and MockForge answers with the fake data we saved earlier.
+
+   Two things are needed to talk to MockForge:
+     1. WORKSPACE_NAME : the folder (workspace) in MockForge that holds our routes.
+     2. A route        : '/students' (GET) and '/attendance' (POST).
+
+   Final URL = MOCKFORGE_URL + '/mock/workspaces/' + workspaceId + route
+   Example   = http://localhost:8080/mock/workspaces/16/students
+
+   LATER, when a real backend exists, change MOCKFORGE_URL and the page keeps working.
+   ===================================================================== */
+const MOCKFORGE_URL  = '';                      // '' = same server that served this page (localhost:8080)
+const WORKSPACE_NAME = 'Attendance Live';       // must match the workspace created in MockForge
+const ROUTE_STUDENTS   = '/students';           // GET  -> list of students
+const ROUTE_ATTENDANCE = '/attendance';         // POST -> "save" attendance
+
+/* HOW THIS PAGE USES MOCKFORGE
+   1. GET /api/workspaces              -> find the id of the workspace named WORKSPACE_NAME.
+   2. GET /mock/workspaces/{id}/students   -> MockForge returns the saved fake student list.
+   3. POST /mock/workspaces/{id}/attendance -> MockForge returns its saved fixed reply (it stores nothing).
+   4. Every reply has an X-MockForge-Source header (MOCK, UPSTREAM, FALLBACK or UPSTREAM_ERROR),
+      which we print in the green box. */
+
+
+/* ---------- Page elements we need to change ---------- */
+const rosterList    = document.getElementById('roster');
+const messageText   = document.getElementById('message');
+const infoBox       = document.getElementById('mockforgeInfo');
+const submitButton  = document.getElementById('submitButton');
+const retryButton   = document.getElementById('retryButton');
+
+let workspaceId = null;     // the id number MockForge gave our workspace (found in step 1)
+
+
+/* ---------- Small helpers ---------- */
+
+// Show a message under the list. isError = true makes it red.
+function showMessage(text, isError) {
+    messageText.textContent = text;
+    messageText.className = isError ? 'error' : '';
+}
+
+// Add one line to the green MockForge panel (so we can watch the calls).
+function logMockForge(text) {
+    const line = document.createElement('div');
+    line.textContent = text;
+    infoBox.append(line);
+}
+
+// Build the full MockForge address for one of our routes.
+function mockUrl(route) {
+    return MOCKFORGE_URL + '/mock/workspaces/' + workspaceId + route;
+}
+
+// fetch() only throws when the server cannot be reached at all.
+// We turn that into a clearer message for the user.
+async function callMockForge(url, options) {
+    try {
+        return await fetch(url, options);
+    } catch (networkError) {
+        throw new Error('Cannot reach MockForge. Is the server running?');
+    }
+}
+
+// Write "METHOD url -> status (source: ...)" in the green panel.
+// The X-MockForge-Source header tells us WHERE the answer came from:
+//   MOCK = our saved fake data, UPSTREAM = a real API,
+//   FALLBACK = real API was too slow so the fake data was used, UPSTREAM_ERROR = real API failed.
+function logResponse(method, url, response) {
+    const source = response.headers.get('X-MockForge-Source') || 'unknown';
+    logMockForge(method + ' ' + url + '  ->  ' + response.status + '  (source: ' + source + ')');
+}
+
+
+/* =====================================================================
+   STEP 1: ask MockForge "which id number does the workspace called X have?"
+   Endpoint used: GET /api/workspaces   (the MockForge management API)
+   ===================================================================== */
+async function findWorkspaceId() {
+    const response = await callMockForge(MOCKFORGE_URL + '/api/workspaces');
+
+    if (!response.ok) {
+        throw new Error('MockForge could not list workspaces (status ' + response.status + ').');
+    }
+
+    const allWorkspaces = await response.json();
+    const ours = allWorkspaces.find(workspace => workspace.name === WORKSPACE_NAME);
+
+    if (!ours) {
+        throw new Error('Workspace "' + WORKSPACE_NAME + '" does not exist in MockForge yet.');
+    }
+
+    logMockForge('Found workspace "' + WORKSPACE_NAME + '" = id ' + ours.workspaceId);
+    return ours.workspaceId;
+}
+
+
+/* =====================================================================
+   STEP 2: load the student list FROM MOCKFORGE and draw it
+   Endpoint used: GET /mock/workspaces/{id}/students
+   ===================================================================== */
+async function loadStudents() {
+    // Reset the page while loading: no buttons, empty panel.
+    retryButton.hidden = true;
+    submitButton.hidden = true;
+    infoBox.textContent = '';
+    showMessage('Loading students from MockForge...');
+
+    try {
+        workspaceId = await findWorkspaceId();
+
+        const url = mockUrl(ROUTE_STUDENTS);
+        const response = await callMockForge(url);
+        logResponse('GET', url, response);
+
+        if (!response.ok) {
+            throw new Error('GET ' + ROUTE_STUDENTS + ' returned status ' + response.status + '.');
+        }
+
+        const students = await response.json();
+
+        // The saved mock body must be a JSON list like [{rollNo, name}, ...].
+        if (!Array.isArray(students)) {
+            throw new Error('MockForge did not send a list of students. Check the saved mock body.');
+        }
+        if (students.length === 0) {
+            throw new Error('The student list from MockForge is empty.');
+        }
+
+        drawStudents(students);
+
+        submitButton.hidden = false;
+        showMessage('Tick = present. Untick = absent. Then press Submit.');
+
+    } catch (error) {
+        // Anything went wrong: clear the list and offer a Retry button.
+        rosterList.replaceChildren();
+        submitButton.hidden = true;
+        retryButton.hidden = false;
+        showMessage('Could not load students. ' + error.message, true);
+    }
+}
+
+
+/* ---------- Draw one row (name + checkbox) per student ---------- */
+function drawStudents(students) {
+    rosterList.replaceChildren();
+
+    for (const student of students) {
+        const row = document.createElement('li');
+
+        const label = document.createElement('span');
+        label.textContent = student.rollNo + '  ' + student.name;   // textContent is safe: it never runs as HTML
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;                    // everyone starts as present
+        checkbox.dataset.rollNo = student.rollNo;   // remember whose checkbox this is
+
+        row.append(label, checkbox);
+        rosterList.append(row);
+    }
+}
+
+
+/* =====================================================================
+   STEP 3: send the attendance TO MOCKFORGE
+   Endpoint used: POST /mock/workspaces/{id}/attendance
+   NOTE: MockForge answers with a fixed saved reply. It does NOT store our data.
+   ===================================================================== */
+async function submitAttendance() {
+    // Safety check: do nothing if the roster has not loaded yet.
+    if (workspaceId === null || rosterList.children.length === 0) {
+        showMessage('Please wait until the student list has loaded.', true);
+        return;
+    }
+
+    // Build the list: [{rollNo:'101', present:true}, ...]
+    const records = [];
+    for (const checkbox of rosterList.querySelectorAll('input')) {
+        records.push({ rollNo: checkbox.dataset.rollNo, present: checkbox.checked });
+    }
+
+    const url = mockUrl(ROUTE_ATTENDANCE);
+
+    // Lock the button so a double click cannot send the attendance twice.
+    submitButton.disabled = true;
+    showMessage('Sending attendance to MockForge...');
+
+    try {
+        const response = await callMockForge(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: new Date().toISOString().slice(0, 10), records: records })
+        });
+        logResponse('POST', url, response);
+
+        if (!response.ok) {
+            throw new Error('POST ' + ROUTE_ATTENDANCE + ' returned status ' + response.status + '.');
+        }
+
+        const presentCount = records.filter(record => record.present).length;
+        showMessage('Sent. ' + presentCount + ' present, ' + (records.length - presentCount) + ' absent. '
+                  + '(MockForge gave its fixed reply - nothing was really stored.)');
+
+    } catch (error) {
+        showMessage('Submit failed. ' + error.message, true);
+    } finally {
+        submitButton.disabled = false;      // unlock the button again
+    }
+}
+
+
+/* ---------- Connect buttons and start ---------- */
+submitButton.onclick = submitAttendance;
+retryButton.onclick  = loadStudents;
+
+loadStudents();     // runs as soon as the page opens
+</script>
+
+</body>
+</html>
