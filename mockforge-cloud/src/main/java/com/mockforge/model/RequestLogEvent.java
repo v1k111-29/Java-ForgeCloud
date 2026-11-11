@@ -3,6 +3,9 @@ package com.mockforge.model;
 import java.time.LocalDateTime;
 
 // Immutable snapshot passed from a request thread to the logging queue.
+// Immutable = cannot change after creation: the class is "final" (no subclasses)
+// and every field is "final" with no setters. That makes it safe to hand from
+// one thread to another: no thread can modify it while another is reading it.
 public final class RequestLogEvent {
 
     private final Long endpointId;
@@ -23,6 +26,7 @@ public final class RequestLogEvent {
 
     private final String fallbackReason;
 
+    // Copy every value out of the (changeable) RequestLog at this moment.
     public RequestLogEvent(RequestLog requestLog) {
 
         this.endpointId = requestLog.getEndpointId();

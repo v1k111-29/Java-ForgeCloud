@@ -18,6 +18,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.mockforge.model.Endpoint;
 import com.mockforge.repository.EndpointRepository;
 
+// Business rules for endpoints: validate the input, then let the repository save/read.
+// Controllers call this class; this class calls EndpointRepository (layers:
+// controller -> service -> repository).
 @Service
 public class EndpointService {
 
@@ -29,6 +32,9 @@ public class EndpointService {
 
     private final Validator validator;
 
+    // allowedUpstreamOrigins comes from the setting mockforge.proxy.allowed-origins,
+    // a comma-separated list like "http://localhost:9001". Default is empty = nothing allowed.
+    // Validator checks the @NotBlank / @Size / ... rules written on the Endpoint fields.
     public EndpointService(EndpointRepository endpointRepository,
         WorkspaceService workspaceService,
         @Value("${mockforge.proxy.allowed-origins:}") List<String> allowedUpstreamOrigins,
@@ -45,6 +51,8 @@ public class EndpointService {
 
 
     // Treat /products and /products/ as the same route. Keep the root / unchanged.
+    // Examples: "/products/" -> "/products", "/" -> "/", "/a//" -> "/a/" (only ONE slash removed).
+    // static = can be called without an object: EndpointService.normalizePath(...).
     public static String normalizePath(String routePath) {
 
         if (routePath.length() > 1 && routePath.endsWith("/")) {
@@ -65,17 +73,21 @@ public class EndpointService {
             throw new ConstraintViolationException(validationErrors);
         }
 
+        // 404 if the workspace id does not exist.
         workspaceService.checkWorkspaceExists(endpoint.getWorkspaceId());
 
         endpoint.setMockUrlPath(normalizePath(endpoint.getMockUrlPath()));
 
         String routePath = endpoint.getMockUrlPath();
 
+        // Regex ".*[?#%].*" = "contains ? or # or % anywhere".
+        // So "/items?id=1", "/a#top", "/a%20b" and "/a//b" are all rejected with 400.
         if (routePath.matches(".*[?#%].*") || routePath.contains("//")) {
             throw createBadRequestException(
                 "Use a plain path without query, fragment, encoding, or repeated slashes");
         }
 
+        // Make sure the content type looks valid, e.g. "application/json".
         try {
             MediaType.parseMediaType(endpoint.getResponseContentType());
         } catch (IllegalArgumentException exception) {
@@ -86,6 +98,8 @@ public class EndpointService {
             throw createBadRequestException("Response body exceeds 32 KiB");
         }
 
+        // 32768 bytes = 32 KiB. We count bytes (UTF-8), not characters.
+        // If the client did not send "enabled", new endpoints start enabled.
         if (endpoint.getEnabled() == null) {
             endpoint.setEnabled(true);
         }
@@ -103,6 +117,9 @@ public class EndpointService {
 
 
     // The upstream URL must belong to an origin approved in application settings.
+    // Origin = scheme + "://" + host[:port], e.g. "http://localhost:9001/api/x" -> "http://localhost:9001".
+    // Also rejected: non-http(s) schemes, missing host, "user:pass@" parts, and "#fragment".
+    // Returning the URI lets MockService use the already-checked value.
     public URI validateUpstreamUrl(String upstreamUrl) {
 
         try {
@@ -169,6 +186,7 @@ public class EndpointService {
     }
 
 
+    // Small helper: builds (does not throw) a 400 Bad Request error with a message.
     private ResponseStatusException createBadRequestException(String errorMessage) {
 
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMessage);

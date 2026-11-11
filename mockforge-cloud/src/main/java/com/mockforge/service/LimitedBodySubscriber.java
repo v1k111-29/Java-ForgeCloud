@@ -8,6 +8,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 
 // Stop downloading if an upstream response exceeds the prototype limit.
+// How it works: the JDK HTTP client pushes the body to us in chunks (onNext).
+// We wrap the normal "collect into byte[]" subscriber and count bytes as they
+// pass through. Over 32 KiB -> cancel the download and report an error (MockService
+// turns that error into a 502). Not a Spring bean: MockService creates one per call.
+
 public class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
 
     private final HttpResponse.BodySubscriber<byte[]> responseBodySubscriber = HttpResponse.BodySubscribers.ofByteArray();
@@ -16,6 +21,7 @@ public class LimitedBodySubscriber implements HttpResponse.BodySubscriber<byte[]
 
     private long receivedByteCount;
 
+    // Once true, we ignore any further chunks / events.
     private boolean downloadStopped;
 
     // Return the completed response body.

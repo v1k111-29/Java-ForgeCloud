@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 // A workspace groups the mock endpoints belonging to one project.
+// workspaceId and createdAt are filled by the database, not by the client.
+// @NotBlank name = required; @Size limits lengths (name 120, description 500).
 public class Workspace {
 
     private Long workspaceId;

@@ -19,6 +19,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.mockforge.model.Endpoint;
 import com.mockforge.service.EndpointService;
 
+// REST API for managing endpoint definitions (JSON in, JSON out).
+// @RequestMapping("/api") at class level = every route below starts with /api.
+// Returned Java objects (Endpoint, List<Endpoint>) are turned into JSON automatically.
 @RestController
 @RequestMapping("/api")
 public class EndpointController {
@@ -40,6 +43,7 @@ public class EndpointController {
 
 
     // API endpoint to fetch endpoints for a workspace.
+    // Two URLs in { } = both routes call this same method.
     @GetMapping({
         "/endpoints/workspace/{workspaceId}", "/workspaces/{workspaceId}/endpoints"
     })
@@ -50,6 +54,9 @@ public class EndpointController {
 
 
     // Validate the request and create a new endpoint.
+    // @RequestBody: turn the JSON body into an Endpoint object.
+    // @Valid: check the rules on Endpoint's fields first; if broken -> 400
+    //         (handled by ApiExceptionHandler). @ResponseStatus(CREATED) = reply 201.
     @PostMapping("/endpoints")
     @ResponseStatus(HttpStatus.CREATED)
     public Endpoint createEndpoint(@Valid @RequestBody Endpoint endpoint) {
@@ -59,6 +66,9 @@ public class EndpointController {
 
 
     // The document's create route takes workspace ownership from the URL.
+    // No @Valid here on purpose: workspaceId is filled in from the URL first,
+    // then EndpointService.createEndpoint runs the validator itself.
+    // Note: getWorkspaceId() is a Long (object); "!=" with a long unboxes it to compare numbers.
     @PostMapping("/workspaces/{workspaceId}/endpoints")
     @ResponseStatus(HttpStatus.CREATED)
     public Endpoint createEndpointInWorkspace(@PathVariable long workspaceId, @RequestBody Endpoint endpoint) {
@@ -74,6 +84,7 @@ public class EndpointController {
 
 
     // API endpoint to enable or disable an endpoint.
+    // PATCH = change part of a resource. Body example: {"enabled": false}
     @PatchMapping("/endpoints/{endpointId}/enabled")
     public Endpoint updateEndpointEnabled(@PathVariable long endpointId, @Valid @RequestBody EnabledRequest enabledRequest) {
 
@@ -82,6 +93,8 @@ public class EndpointController {
 
 
     // Request body used to enable or disable an endpoint.
+    // Boolean (object) instead of boolean so a missing value is null, and
+    // @NotNull then rejects it with 400 instead of silently meaning false.
     public static class EnabledRequest {
 
         @NotNull

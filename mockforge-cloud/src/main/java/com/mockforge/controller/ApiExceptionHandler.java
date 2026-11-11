@@ -23,6 +23,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+// @RestControllerAdvice = one central place that catches exceptions thrown by
+// ANY controller and turns them into a clean JSON error, e.g. {"error": "..."}.
+// Each @ExceptionHandler(X.class) method handles exception type X.
+// ResponseEntity<?> = response with any body type ("?" = wildcard).
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
@@ -51,6 +55,7 @@ public class ApiExceptionHandler {
     }
 
 
+    // No controller or static file matches the URL -> 404.
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<?> handleMissingResource(NoResourceFoundException exception) {
 
@@ -88,6 +93,8 @@ public class ApiExceptionHandler {
     }
 
 
+    // Broken JSON body, or a URL value of the wrong type (e.g. /api/endpoints/abc/logs
+    // where a number was expected) -> 400.
     @ExceptionHandler({
         HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class
     })
@@ -98,6 +105,7 @@ public class ApiExceptionHandler {
 
 
     // A workspace cannot contain the same HTTP method and route twice.
+    // The database UNIQUE rule throws DuplicateKeyException -> 409 Conflict.
     @ExceptionHandler(DuplicateKeyException.class)
     public ResponseEntity<?> handleDuplicateEndpoint(DuplicateKeyException exception) {
 
@@ -106,6 +114,7 @@ public class ApiExceptionHandler {
     }
 
 
+    // Other database rule breaks (e.g. a foreign key pointing to a missing row) -> 409.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<?> handleRelatedRecordConflict(DataIntegrityViolationException exception) {
 
@@ -115,6 +124,8 @@ public class ApiExceptionHandler {
 
 
     // Keep the failure details in the server log and give the caller a reference to it.
+    // Catch-all for anything not handled above -> 500. The random UUID lets you find
+    // the matching stack trace in the server log without showing it to the caller.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleUnexpectedException(Exception exception) {
 

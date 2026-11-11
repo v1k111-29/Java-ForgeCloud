@@ -22,6 +22,8 @@ public class RequestLogRepository {
 
 
     // Save a request log to the database.
+    // The values after sqlQuery fill the "?" placeholders in order (1st value -> 1st ?).
+    // Returns how many rows were inserted (normally 1).
     public int saveRequestLog(RequestLog requestLog) {
 
         String sqlQuery = "INSERT INTO request_logs (endpoint_id, received_at, http_method, request_path, response_status, "
@@ -59,6 +61,7 @@ public class RequestLogRepository {
 
         requestLog.setResponseStatus(resultSet.getInt("response_status"));
 
+        // getObject(..., Integer.class) keeps SQL NULL as null (getInt would give 0).
         requestLog.setDurationMs(resultSet.getObject("duration_ms", Integer.class));
 
         requestLog.setRequestBodySample(resultSet.getString("request_body_sample"));
@@ -80,6 +83,8 @@ public class RequestLogRepository {
 
 
     // Fetch recent logs belonging to one endpoint.
+    // Newest first; log_id breaks ties when two logs have the same time.
+    // Even the LIMIT number is a "?" placeholder (LogController keeps it 1..100).
     public List<RequestLog> findRequestLogsByEndpointId(long endpointId, int requestedLimit) {
 
         String sqlQuery = "SELECT * FROM request_logs WHERE endpoint_id = ? ORDER BY received_at DESC, log_id DESC LIMIT ?";

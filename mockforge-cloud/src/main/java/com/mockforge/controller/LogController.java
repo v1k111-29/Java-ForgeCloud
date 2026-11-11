@@ -14,6 +14,8 @@ import com.mockforge.repository.RequestLogRepository;
 import com.mockforge.service.AsyncRequestLogger;
 import com.mockforge.service.EndpointService;
 
+// Read-only API for request logs and logging-queue statistics.
+// Logs are saved in the background, so a just-made call may appear a moment later.
 @RestController
 @RequestMapping("/api")
 public class LogController {
@@ -35,6 +37,8 @@ public class LogController {
 
 
     // Fetch recent logs for the selected endpoint.
+    // @RequestParam reads "?limit=20" from the URL; if missing, 50 is used.
+    // getEndpointOrThrow first -> unknown endpoint gives 404 (not an empty list).
     @GetMapping("/endpoints/{endpointId}/logs")
     public List<RequestLog> getEndpointRequestLogs(@PathVariable long endpointId,
         @RequestParam(name = "limit", defaultValue = "50") int requestedLimit) {

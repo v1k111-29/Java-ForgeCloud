@@ -17,6 +17,9 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
+// Privacy helper: from a request body, keep ONLY "productId" and "quantity"
+// (whole numbers, top level). Everything else is thrown away before logging.
+// Example: {"productId":7,"quantity":2,"card":"1234"} -> {"productId":7,"quantity":2}
 @Service
 public class RequestBodySampler {
 
@@ -31,6 +34,7 @@ public class RequestBodySampler {
     // Read only a small body. We never keep the complete request in the log.
     public String sampleRequestBody(HttpServletRequest httpRequest) throws IOException {
 
+        // Quick check of the Content-Length header (-1 if the client did not send it).
         if (httpRequest.getContentLengthLong() > MAX_BODY_BYTES) {
             throw createBodyTooLargeException();
         }
@@ -57,6 +61,7 @@ public class RequestBodySampler {
         }
 
         try {
+            // Accept only JSON types: "application/json" or e.g. "application/problem+json".
             MediaType requestMediaType = MediaType.parseMediaType(contentType);
 
             if (!"application".equalsIgnoreCase(requestMediaType.getType())
@@ -66,12 +71,15 @@ public class RequestBodySampler {
                 return null;
             }
 
+            // readTree turns the bytes into a JsonNode tree we can look inside.
+            // Must be a JSON object { ... }; arrays like [1,2] are ignored.
             JsonNode jsonBody = jsonMapper.readTree(requestBodyBytes);
 
             if (jsonBody == null || !jsonBody.isObject()) {
                 return null;
             }
 
+            // LinkedHashMap keeps insertion order, so the output is always productId then quantity.
             Map<String, Long> approvedFields = new LinkedHashMap<>();
 
             for (String fieldName : allowedFieldNames) {
@@ -90,6 +98,7 @@ public class RequestBodySampler {
                 return null;
             }
 
+            // Turn the map back into a JSON string; drop it if bigger than 256 bytes.
             String sampleJson = jsonMapper.writeValueAsString(approvedFields);
 
             if (sampleJson.getBytes(StandardCharsets.UTF_8).length > MAX_SAMPLE_BYTES) {
@@ -104,6 +113,7 @@ public class RequestBodySampler {
     }
 
 
+    // 413 Payload Too Large.
     private ResponseStatusException createBodyTooLargeException() {
 
         return new ResponseStatusException(

@@ -12,6 +12,11 @@ import org.springframework.stereotype.Repository;
 import com.mockforge.model.Endpoint;
 
 // Save endpoint settings and turn database rows back into Endpoint objects.
+// @Repository = a Spring bean whose job is talking to the database.
+// JdbcTemplate = Spring helper that opens/closes connections and runs SQL for us
+// (plain JDBC, no JPA/Hibernate, so we write the SQL by hand).
+// Every "?" in the SQL is a placeholder: the value is sent separately from the
+// SQL text, so user input can never change the query. This stops SQL injection.
 @Repository
 public class EndpointRepository {
 
@@ -24,6 +29,9 @@ public class EndpointRepository {
 
 
     // Convert each database row into a Java object.
+    // RowMapper = "recipe" called once per row: read columns by name from the
+    // ResultSet and copy them into a new Endpoint. Written as a lambda.
+    // Note the names differ: column "route_path" -> field mockUrlPath, "name" -> endpointName.
     private final RowMapper<Endpoint> endpointRowMapper = (resultSet, rowNumber) -> {
 
         Endpoint endpoint = new Endpoint();
@@ -58,6 +66,10 @@ public class EndpointRepository {
     };
 
     // Save an endpoint and return the created record.
+    // GeneratedKeyHolder catches the new auto-increment endpoint_id the database
+    // creates. new String[]{"endpoint_id"} tells JDBC which column to return.
+    // setObject(1, ...) fills the 1st "?", setObject(2, ...) the 2nd, and so on.
+    // Finally we read the row back so defaults like created_at are included.
     public Endpoint saveEndpoint(Endpoint endpoint) {
 
         GeneratedKeyHolder generatedKeyHolder = new GeneratedKeyHolder();
@@ -118,6 +130,7 @@ public class EndpointRepository {
 
 
     // Find one endpoint using its ID.
+    // query(...) returns a list; empty list = not found, so we return null.
     public Endpoint findEndpointById(long endpointId) {
 
         List<Endpoint> endpoints = jdbcTemplate.query("SELECT * FROM endpoints WHERE endpoint_id = ?", endpointRowMapper, endpointId);
@@ -136,6 +149,8 @@ public class EndpointRepository {
         List<Endpoint> endpoints = jdbcTemplate.query("SELECT * FROM endpoints WHERE workspace_id = ? AND http_method = ? AND route_path = ? AND enabled = TRUE", endpointRowMapper, workspaceId, httpMethod, routePath);
 
         // Keep routing exact even if an older MySQL table uses a case-insensitive collation.
+        // Example: MySQL might say "/Products" = "/products"; Java's equals() does not,
+        // so we double-check in Java to keep paths case-sensitive.
         for (Endpoint endpoint : endpoints) {
             if (httpMethod.equals(endpoint.getHttpMethod()) && routePath.equals(endpoint.getMockUrlPath())) {
                 return endpoint;
