@@ -17,9 +17,6 @@ Course project by **Vignesh N** (Roll no: 25011102115).
 | File | Content |
 |------|---------|
 | [MockForge_Project_Report.docx](MockForge_Project_Report.docx) | Full project report: problem statement, design, modules, implementation, 33 manual + 10 automated test cases, screenshots, OO features, future work |
-| [mockforge-cloud/README.md](mockforge-cloud/README.md) | API tables and run instructions |
-| [mockforge-cloud/TEAM_GUIDE.md](mockforge-cloud/TEAM_GUIDE.md) | Guide for teammates |
-| [mockforge-cloud/STUDY_GUIDE.md](mockforge-cloud/STUDY_GUIDE.md) | Code walkthrough |
 
 ## Project layout
 
