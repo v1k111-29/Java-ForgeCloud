@@ -2,7 +2,7 @@
 
 A Java application that lets a developer create fake ("mock") REST APIs, call them over HTTP, and review a log of every call. Built with Spring Boot, plain JDBC and MySQL.
 
-Course project by **Vignesh N** anad **S. Vineeth Joshua**
+Course project by **Vignesh N** and **S. Vineeth Joshua**
 
 ## What it does
 
